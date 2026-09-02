@@ -4,7 +4,7 @@ import { installBrowserStubs } from './helpers.mjs'
 
 const stubs = installBrowserStubs()
 const { addCustomItem, loadCustomItems, removeCustomItem, clearCustomItems } = await import(
-  '../src/lib/customItems.js'
+  '../src/features/showcase/model/customItems.js'
 )
 
 const KEY = 'inspironics.customItems.v1'

@@ -1,5 +1,5 @@
 /**
- * Builds src/lib/productEnrichment.js — the image -> Caleido/Cielo product map.
+ * Builds src/features/showcase/model/productEnrichment.js — the image -> Caleido/Cielo product map.
  *
  * The showcase infographics name Inspironics products *inside the artwork*, where
  * no text field in showcase.json can reach them.
@@ -174,5 +174,5 @@ export function productKeysFor(f) {
 }
 `
 
-fs.writeFileSync(path.join(ROOT, 'src/lib/productEnrichment.js'), header + '\n' + body)
-console.log('wrote src/lib/productEnrichment.js')
+fs.writeFileSync(path.join(ROOT, 'src/features/showcase/model/productEnrichment.js'), header + '\n' + body)
+console.log('wrote src/features/showcase/model/productEnrichment.js')

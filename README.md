@@ -42,32 +42,51 @@ React 18 · Vite 5 · Tailwind CSS 3 · Framer Motion · Three.js · jsPDF · Re
 
 ## Where things live
 
+Three layers — `shared/` at the bottom, `features/` above it, `app/` composing
+them. Dependencies only point downwards, and `npm run lint:arch` fails the build
+if they do not. Full detail in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ```
 src/
-  App.jsx                          router: / (Home), /report, auth routes
-  pages/                           Home · MonthlyReport · Login · Register · VerifyOtp
-                                   ForgotPassword · ResetPassword
-  context/AuthContext.jsx          session provider + ProtectedRoute gate
-  components/inspironics/          Navbar · HeroSection · Ecosystem3DLarge · EcosystemExplorer
-                                   Gallery · GalleryFilters · FlipCard · Lightbox · AddImageModal
-                                   DailySpotlight · AboutSection · ContactSection · Footer
-                                   CopilotPanel · Markdown · IntroSequence · Loader · Logo
-                                   AuthShell · GoogleButton
-  lib/
-    showcaseData.js                fetch + enrich + aggregate; thumb/full URL building
-    productEnrichment.js           generated image -> product map (see below)
-    ecosystemData.js               ZONES · PRODUCT_NODES · STACK_LAYERS · routes · countMatches
-    ecosystemCity.js               Three.js scene builders (sky, landmark, zones, conduits, drones)
-    copilotKnowledge.js            getShowcaseKnowledge, retrieval, answers, CopilotNote store
-    customItems.js                 locally-added plates (localStorage)
-    generateReportPdf.js           jsPDF monthly report
-    auth.js                        auth API (localStorage-backed)
+  main.jsx                         mounts the app
+  app/                             composition root — may import anything
+    App.jsx                        providers · error boundary · suspense
+    routes.jsx                     the whole URL space, assembled from features
+    pages/Home.jsx                 the one page composing several features
+    components/Navbar.jsx          global chrome
+  features/                        a slice of the product, end to end
+    auth/                          api/ (repository + service) · model/ · context/
+                                   components/ · pages/ · routes.jsx
+    showcase/                      model/ (corpus, enrichment, custom items)
+                                   components/ (Gallery · Lightbox · FlipCard · …)
+    ecosystem/                     model/ (zones, products, routes)
+                                   render/ (Three.js city + quality tiers)
+                                   components/ (Explorer · Canvas)
+    copilot/                       model/ (knowledge, retrieval) · components/
+    report/                        lib/reportPdf.js · pages/ · routes.jsx
+    site/                          Hero · About · Contact · Footer · IntroSequence
+  shared/                          belongs to no feature
+    config/                        env, storage keys, policy — the only reader
+                                   of import.meta.env
+    ui/                            SectionHead · Loader · Logo · Markdown
+                                   ErrorBoundary
+    lib/                           scrollLock · RouteSpec typedef
+docs/
+  ARCHITECTURE.md                  layers, rules, trade-offs
+  adr/                             decision records
 scripts/
-  buildEnrichment.mjs              regenerates src/lib/productEnrichment.js
-  smoke.mjs                        browser smoke test (needs puppeteer-core + local Chrome)
+  checkArchitecture.mjs            boundary guard (npm run lint:arch)
+  checkRoutes.mjs                  every ecosystem node resolves to plates
+  buildEnrichment.mjs              regenerates the image -> product map
+  smoke.mjs                        browser smoke test (puppeteer-core + Chrome)
+tests/                             node:test units — no runner config
 inspironics/                       the 235 plates: thumbs/*.webp and full/*.webp
 public/data/showcase.json          the corpus
 ```
+
+Cross-boundary imports use `#app/*`, `#features/*` and `#shared/*`, declared in
+the `imports` field of `package.json` (so plain Node resolves them) and mirrored
+in `vite.config.js`.
 
 ## Images
 
@@ -76,14 +95,14 @@ The plates already live in `inspironics/{thumbs,full}` (~48 MB), so they are **n
 in dev and copies it into `dist/images` on build. `showcaseData.js` builds every URL as
 `/images` + `item.t` (thumbnail) or `/images` + `item.full` (full view).
 
-To point at a different image source, change `BASE` in `src/lib/showcaseData.js` and the
+To point at a different image source, change `BASE` in `src/features/showcase/model/showcaseData.js` and the
 `IMAGE_SRC` path in `vite.config.js`.
 
 ## Product enrichment
 
 Five products are named *inside* the artwork but appear in no text field: **Caleido Xenia**,
 **Caleido Domi**, **Caleido Kombos**, **Cielo Epic** and **Caleido Mints**.
-`src/lib/productEnrichment.js` maps each image id (`item.f`) to the products it carries;
+`src/features/showcase/model/productEnrichment.js` maps each image id (`item.f`) to the products it carries;
 `showcaseData.js` merges those phrases into the item's `extraKeywords`, so the ecosystem product
 nodes and free-text search both resolve them (searching `kombos` returns 64 plates).
 
@@ -102,7 +121,7 @@ If you run a full OCR pass over the plates, drop the results into `CONFIRMED_ALL
 ## Auth
 
 There is no server in this build, so accounts, OTP codes and reset tokens live in `localStorage`
-behind the async `api` object in `src/lib/auth.js` — the signatures and error shapes are what a REST
+behind the async `api` object in `src/features/auth/api/authService.js` — the signatures and error shapes are what a REST
 auth service would expose, so swapping in a backend means replacing those function bodies. Because
 no mail is sent, the OTP and reset codes are shown on screen.
 
@@ -115,7 +134,7 @@ cp .env.example .env.local
 
 Without it, the Google button falls back to a clearly-labelled demo identity.
 
-Copilot session notes are stored through `CopilotNote` in `src/lib/copilotKnowledge.js`, which
+Copilot session notes are stored through `CopilotNote` in `src/features/copilot/model/copilotKnowledge.js`, which
 enforces the same predicate the server RLS policy would: a note is readable and writable by its
 owner, and by an admin.
 

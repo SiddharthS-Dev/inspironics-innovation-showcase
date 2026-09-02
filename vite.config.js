@@ -46,6 +46,16 @@ function inspironicsImages() {
 
 export default defineConfig({
   plugins: [react(), inspironicsImages()],
+  // Mirrors the `imports` map in package.json. Both exist on purpose: the
+  // package.json form is what Node (and therefore the unit tests) resolves,
+  // this is what Vite resolves, and they must not drift.
+  resolve: {
+    alias: {
+      '#app': path.join(ROOT, 'src', 'app'),
+      '#features': path.join(ROOT, 'src', 'features'),
+      '#shared': path.join(ROOT, 'src', 'shared'),
+    },
+  },
   server: { port: 5173, open: true },
   build: {
     rollupOptions: {

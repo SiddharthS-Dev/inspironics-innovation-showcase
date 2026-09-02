@@ -168,8 +168,8 @@ try {
 
   const pdfPages = await page.evaluate(async () => {
     const [{ loadShowcase }, { generateReportPdf }] = await Promise.all([
-      import('/src/lib/showcaseData.js'),
-      import('/src/lib/generateReportPdf.js'),
+      import('/src/features/showcase/model/showcaseData.js'),
+      import('/src/features/report/lib/reportPdf.js'),
     ])
     const data = await loadShowcase()
     const doc = generateReportPdf(data, { save: false })

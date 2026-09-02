@@ -2,7 +2,7 @@
  * Browser stubs for the unit tests.
  *
  * The modules under test are the ones that hold real logic but no React:
- * lib/auth.js, lib/customItems.js and the route matching in lib/ecosystemData.js.
+ * the auth service, the custom-item store and the ecosystem route matching.
  * They only need localStorage and a window that can dispatch events, so there
  * is no reason to pull in a full DOM.
  */

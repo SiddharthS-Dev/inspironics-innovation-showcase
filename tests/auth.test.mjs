@@ -3,7 +3,7 @@ import test from 'node:test'
 import { installBrowserStubs } from './helpers.mjs'
 
 const stubs = installBrowserStubs()
-const { api, passwordIssues, EMAIL_RE } = await import('../src/lib/auth.js')
+const { api, passwordIssues, EMAIL_RE } = await import('../src/features/auth/api/authService.js')
 
 const PW = 'correct-horse1'
 const fresh = () => stubs.reset()

@@ -4,7 +4,7 @@ import test from 'node:test'
 // ecosystemData pulls in productEnrichment, which is plain data — no browser
 // globals needed here.
 const { matchesRoute, countMatches, routeLabel, nodeById, NODES, CONDUITS } = await import(
-  '../src/lib/ecosystemData.js'
+  '#features/ecosystem/model'
 )
 
 const item = (over = {}) => ({

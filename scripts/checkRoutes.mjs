@@ -12,8 +12,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const data = JSON.parse(fs.readFileSync(path.join(ROOT, 'public/data/showcase.json'), 'utf8'))
 
-const { NODES, countMatches } = await import(pathToFileURL(path.join(ROOT, 'src/lib/ecosystemData.js')))
-const { enrichmentFor } = await import(pathToFileURL(path.join(ROOT, 'src/lib/productEnrichment.js')))
+const { NODES, countMatches } = await import(pathToFileURL(path.join(ROOT, 'src/features/ecosystem/model/ecosystemData.js')))
+const { enrichmentFor } = await import(pathToFileURL(path.join(ROOT, 'src/features/showcase/model/productEnrichment.js')))
 
 // Mirror showcaseData.haystack so the check sees exactly what the gallery sees.
 const items = data.items.map((it) => ({
