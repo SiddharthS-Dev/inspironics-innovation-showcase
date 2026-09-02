@@ -17,7 +17,9 @@ export default function VerifyOtp() {
   const [digits, setDigits] = useState(Array(LEN).fill(''))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [devCode, setDevCode] = useState(state?.devCode || pending?.code || '')
+  // the stored record only holds a hash now; the plaintext lives behind the
+  // clearly-demo-only accessor, so a reload can still show it
+  const [devCode, setDevCode] = useState(state?.devCode || api.getDemoCode(email) || '')
   const [seconds, setSeconds] = useState(45)
   const inputs = useRef([])
 

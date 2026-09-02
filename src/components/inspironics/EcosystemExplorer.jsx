@@ -1,11 +1,22 @@
 import { useCallback, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Ecosystem3DLarge from './Ecosystem3DLarge'
+import { CHOICES, TIERS, loadChoice, resolveTier, saveChoice } from '../../lib/explorerQuality'
 import { PRODUCT_NODES, STACK_LAYERS, ZONES, countMatches, routeLabel } from '../../lib/ecosystemData'
 
 export default function EcosystemExplorer({ items, onRoute }) {
   const [hover, setHover] = useState(null)
   const [selected, setSelected] = useState(null)
+  // The picker lives out here rather than inside the canvas, so it is still
+  // reachable when the canvas is switched off.
+  const [quality, setQuality] = useState(loadChoice)
+  const tier = resolveTier(quality)
+
+  const chooseQuality = (value) => {
+    saveChoice(value)
+    setQuality(value)
+    setHover(null)
+  }
 
   const counts = useMemo(() => {
     const of = (n) => [n.id, countMatches(items, n.route)]
@@ -25,15 +36,49 @@ export default function EcosystemExplorer({ items, onRoute }) {
         eyebrow="Ecosystem Explorer"
         title="One city. Every system."
         sub="A live model of the Inspironics estate — zones, products and the intelligence stack that binds them. Click any node to filter the gallery to the work behind it."
+        right={
+          <label className="flex shrink-0 items-center gap-2.5 rounded-lg border border-white/12 bg-[#0b0b10]/80 px-3 py-2">
+            <span className="label-mono">Render</span>
+            <select
+              value={quality}
+              onChange={(e) => chooseQuality(e.target.value)}
+              className="bg-transparent font-mono text-[11px] uppercase tracking-[0.14em] text-chalk outline-none"
+              aria-label="Explorer render quality"
+            >
+              {CHOICES.map((c) => (
+                <option key={c.value} value={c.value} className="bg-[#0b0b10]">
+                  {c.label}
+                  {c.value === 'auto' && tier !== 'off' ? ` · ${TIERS[tier]?.label ?? tier}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        }
       />
 
       <div className="relative mt-12 overflow-hidden rounded-3xl border border-white/10 bg-[#070810] shadow-lift">
         <div className="relative h-[520px] sm:h-[640px] lg:h-[860px]">
-          <Ecosystem3DLarge onHover={setHover} onSelect={open} focusId={selected?.id} />
+          {tier === 'off' ? (
+            <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
+              <div className="grid h-14 w-14 place-items-center rounded-2xl border border-white/10 bg-white/[0.03] text-xl text-muted">
+                ◍
+              </div>
+              <p className="text-lg font-semibold text-chalk">The 3D city is switched off.</p>
+              <p className="max-w-md text-sm leading-relaxed text-muted">
+                Every zone and product below still filters the gallery — the model is a way in, not the only one. Set
+                render quality back to Auto to bring the city back.
+              </p>
+              <button onClick={() => chooseQuality('auto')} className="btn-ghost mt-1">
+                Turn the city back on
+              </button>
+            </div>
+          ) : (
+            <Ecosystem3DLarge onHover={setHover} onSelect={open} focusId={selected?.id} tier={tier} />
+          )}
 
           {/* hover tooltip */}
           <AnimatePresence>
-            {hover && !selected && (
+            {hover && !selected && tier !== 'off' && (
               <motion.div
                 key="tip"
                 className="pointer-events-none fixed z-20 -translate-x-1/2 -translate-y-[calc(100%+16px)]"
@@ -111,7 +156,10 @@ export default function EcosystemExplorer({ items, onRoute }) {
           </AnimatePresence>
 
           {/* hint bar */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-4">
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-4"
+            hidden={tier === 'off'}
+          >
             <div className="rounded-full border border-white/10 bg-[#08090e]/85 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-muted backdrop-blur">
               Drag to orbit · Scroll to zoom · Right-drag to pan · Click any node
             </div>

@@ -7,6 +7,9 @@
  */
 const INLINE = /(!\[[^\]]*\]\([^)]+\)|\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g
 
+/** Link schemes Markdown will render as an anchor. */
+const SAFE_HREF = /^(https?:\/\/|#|\/)/i
+
 function Inline({ text, onOpenImage }) {
   const parts = String(text).split(INLINE).filter(Boolean)
   return (
@@ -27,6 +30,10 @@ function Inline({ text, onOpenImage }) {
           )
         }
         if ((m = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(p))) {
+          // Only http(s) and in-page anchors. Today this renders authored
+          // copilot answers, but a javascript: or data: href would be live the
+          // moment it is pointed at anything a visitor can type.
+          if (!SAFE_HREF.test(m[2].trim())) return <span key={i}>{m[1]}</span>
           return (
             <a
               key={i}

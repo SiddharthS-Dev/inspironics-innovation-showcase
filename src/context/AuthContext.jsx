@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
-import { api } from '../lib/auth'
+import { SESSION_KEY, api } from '../lib/auth'
 
 const AuthCtx = createContext(null)
 
@@ -11,10 +11,42 @@ export function AuthProvider({ children }) {
   })
   const [ready, setReady] = useState(false)
 
+  /*
+   * Expiry used to be checked only at mount, so a session that lapsed while
+   * the tab sat open stayed usable indefinitely. Re-check on a timer, whenever
+   * the tab comes back to the foreground, and whenever another tab changes the
+   * stored session — which also makes signing out (or in) propagate across
+   * tabs instead of leaving them disagreeing.
+   */
   useEffect(() => {
-    const s = api.getSession()
-    if (s && s.expiresAt <= Date.now()) api.logout()
+    const sync = () => {
+      const stored = api.getSession()
+      const live = stored && stored.expiresAt > Date.now() ? stored : null
+      if (!live && stored) api.logout()
+      setSession((current) => {
+        if (!live) return current === null ? current : null
+        if (current && current.issuedAt === live.issuedAt) return current
+        return live
+      })
+    }
+
+    sync()
     setReady(true)
+
+    const timer = setInterval(sync, 60_000)
+    const onVisible = () => document.visibilityState === 'visible' && sync()
+    const onStorage = (e) => {
+      if (e.key === null || e.key === SESSION_KEY) sync()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', sync)
+    window.addEventListener('storage', onStorage)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', sync)
+      window.removeEventListener('storage', onStorage)
+    }
   }, [])
 
   const logout = useCallback(() => {

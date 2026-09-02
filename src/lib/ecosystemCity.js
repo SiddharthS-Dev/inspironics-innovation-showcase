@@ -88,44 +88,43 @@ const smoothstep = (a, b, x) => {
 /* -------------------------------------------------------------- resources --- */
 
 /*
- * Textures and materials are cached at module scope and deliberately *not*
- * released by `city.dispose()` — they are shared, bounded in number, and get
- * reused verbatim when the explorer remounts. Only geometry (and the per-label
- * sprite materials) is per-instance.
+ * Textures are cached at module scope and deliberately *not* released by
+ * `city.dispose()`: nothing ever mutates them, they are bounded in number,
+ * they are by far the most expensive thing to build, and a remount reuses
+ * them verbatim.
  */
 const TEX = new Map()
-const MAT = new Map()
 
 /*
- * The city is built once and then re-lit. Materials whose glow differs between
- * day and night register both values here as they are created, so flipping the
- * whole scene is a walk of this list rather than a rebuild.
+ * Materials, by contrast, belong to one city.
  *
- * Registration happens inside the `mat()` factory, which only runs once per
- * cache key, so remounting the explorer never duplicates an entry.
+ * The city is built once and then re-lit — materials whose glow differs
+ * between day and night record both values as they are created, so flipping
+ * the look is a walk of a list rather than a rebuild. That makes them mutable
+ * state, and sharing mutable state across module scope would mean two
+ * explorers on one page fighting over whether it is night. So each build gets
+ * its own material cache and its own day/night register, and `buildCity()`
+ * hands back a `setTimeOfDay` bound to them.
+ *
+ * `ctx` is set only for the synchronous duration of `buildCity()`; the
+ * animation closures that need to know the time of day capture it directly.
  */
-const DAYNIGHT = []
-const dual = (material, prop, day, night) => {
-  DAYNIGHT.push({ material, prop, day, night })
-  return material
-}
-
-/** True while the night look is active — read by the animated emissives. */
-let isNight = false
-
-/** Flip every registered material, and every animated glow, between looks. */
-export function setTimeOfDay(mode) {
-  isNight = mode === 'night'
-  for (const t of DAYNIGHT) t.material[t.prop] = isNight ? t.night : t.day
-}
+let ctx = null
 
 const mat = (key, make) => {
-  let m = MAT.get(key)
+  if (!ctx) throw new Error('ecosystemCity: mat() is only valid while buildCity() is running')
+  let m = ctx.mats.get(key)
   if (!m) {
     m = make()
-    MAT.set(key, m)
+    ctx.mats.set(key, m)
   }
   return m
+}
+
+/** Register a material property that differs between the two looks. */
+const dual = (material, prop, day, night) => {
+  ctx.dayNight.push({ material, prop, day, night })
+  return material
 }
 
 const paint = (w, h, draw) => {
@@ -818,7 +817,7 @@ export function makeSkyEnvironment(renderer, mode = 'day') {
   if (look.stars) backdrop.add(buildStars(look.stars))
   if (look.moon) backdrop.add(buildMoon(dirFrom(look.key)))
 
-  return { env, backdrop, sky, look, fogColor: new THREE.Color(look.fog.color) }
+  return { env, backdrop, fogColor: new THREE.Color(look.fog.color) }
 }
 
 /* ---------------------------------------------------------------- labels --- */
@@ -919,8 +918,8 @@ const COVER = {
   rock: new THREE.Color(0.66, 0.66, 0.7),
 }
 
-function buildTerrain() {
-  const geo = new THREE.PlaneGeometry(1900, 1900, 140, 140)
+function buildTerrain(segments) {
+  const geo = new THREE.PlaneGeometry(1900, 1900, segments, segments)
   geo.rotateX(-Math.PI / 2)
   const p = geo.attributes.position
   for (let i = 0; i < p.count; i++) p.setY(i, terrainHeight(p.getX(i), p.getZ(i)))
@@ -1174,7 +1173,7 @@ function buildLake([cx, cz]) {
  * Instanced street trees + greenbelt woodland.
  * Trunks and canopies are two instanced meshes, so the whole forest is 2 draws.
  */
-function buildTrees(avenues, parkSpots) {
+function buildTrees(avenues, parkSpots, density) {
   const rnd = makeRng(9091)
   const spots = []
 
@@ -1182,7 +1181,7 @@ function buildTrees(avenues, parkSpots) {
   RINGS.forEach(({ r, w }) => {
     for (const s of [-1, 1]) {
       const rr = r + s * (w / 2 + 2.1)
-      const n = Math.max(8, Math.round((Math.PI * 2 * rr) / 7.5))
+      const n = Math.max(8, Math.round(((Math.PI * 2 * rr) / 7.5) * density))
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2 + rnd() * 0.04
         // leave the junctions clear
@@ -1195,7 +1194,7 @@ function buildTrees(avenues, parkSpots) {
   // avenue trees
   avenues.forEach((a) => {
     for (const s of [-1, 1]) {
-      for (let r = PLAZA_R + 6; r < AVENUE_END - 6; r += 7.5) {
+      for (let r = PLAZA_R + 6; r < AVENUE_END - 6; r += 7.5 / density) {
         const off = s * (AVENUE_W / 2 + 2)
         spots.push([Math.cos(a) * r - Math.sin(a) * off, Math.sin(a) * r + Math.cos(a) * off, 0.8 + rnd() * 0.45])
       }
@@ -1204,7 +1203,7 @@ function buildTrees(avenues, parkSpots) {
 
   // clumps inside the parks
   parkSpots.forEach(([x, z, r]) => {
-    const n = Math.round(r * 1.3)
+    const n = Math.round(r * 1.3 * density)
     for (let i = 0; i < n; i++) {
       const a = rnd() * Math.PI * 2
       const d = Math.sqrt(rnd()) * (r - 2)
@@ -1213,7 +1212,8 @@ function buildTrees(avenues, parkSpots) {
   })
 
   // scattered woodland out to the hills
-  for (let i = 0; i < 520; i++) {
+  const woodland = Math.round(520 * density)
+  for (let i = 0; i < woodland; i++) {
     const a = rnd() * Math.PI * 2
     const r = 128 + Math.sqrt(rnd()) * 200
     const x = Math.cos(a) * r
@@ -1277,11 +1277,11 @@ function buildTrees(avenues, parkSpots) {
 }
 
 /** Instanced lamp standards with a warm pool of light on the tarmac. */
-function buildStreetLights(avenues) {
+function buildStreetLights(avenues, density) {
   const spots = []
 
   RINGS.forEach(({ r, w }) => {
-    const n = Math.max(8, Math.round((Math.PI * 2 * r) / 11))
+    const n = Math.max(8, Math.round(((Math.PI * 2 * r) / 11) * density))
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2
       const s = i % 2 ? 1 : -1
@@ -1290,7 +1290,7 @@ function buildStreetLights(avenues) {
     }
   })
   avenues.forEach((a) => {
-    for (let r = PLAZA_R + 8; r < AVENUE_END - 8; r += 11) {
+    for (let r = PLAZA_R + 8; r < AVENUE_END - 8; r += 11 / density) {
       for (const s of [-1, 1]) {
         const off = s * (AVENUE_W / 2 + 0.75)
         spots.push([
@@ -1337,7 +1337,7 @@ function buildStreetLights(avenues) {
  * Cars circulating the ring roads and avenues. Five instanced meshes (body,
  * glazing, headlights, tail lights, headlight pool) cover the whole fleet.
  */
-function buildTraffic(avenues) {
+function buildTraffic(avenues, density) {
   const lanes = []
   RINGS.forEach(({ r, w }) => {
     for (const dir of [1, -1]) {
@@ -1354,7 +1354,7 @@ function buildTraffic(avenues) {
   const rnd = makeRng(31337)
   const cars = []
   lanes.forEach((lane) => {
-    const n = Math.max(2, Math.round(lane.len / 13))
+    const n = Math.max(2, Math.round((lane.len / 13) * density))
     for (let i = 0; i < n; i++) {
       cars.push({
         lane,
@@ -1448,7 +1448,7 @@ function buildTraffic(avenues) {
 /* ------------------------------------------------------- distant skyline --- */
 
 /** A far-off skyline so the horizon has depth. No shadows, one draw call. */
-function buildSkyline() {
+function buildSkyline(density) {
   const rnd = makeRng(555)
   const items = []
   // three satellite towns rather than an even scatter, so the horizon has shape
@@ -1458,7 +1458,8 @@ function buildSkyline() {
     [4.7, 240, 54],
   ]
   towns.forEach(([bearing, dist, spread]) => {
-    for (let i = 0; i < 52; i++) {
+    const perTown = Math.round(52 * density)
+    for (let i = 0; i < perTown; i++) {
       const a = bearing + (rnd() - 0.5) * 0.9
       const r = dist + (rnd() - 0.5) * spread
       const core = 1 - Math.min(1, Math.abs(r - dist) / (spread * 0.5))
@@ -1584,6 +1585,7 @@ function pitchedRoof(b, x, y, z, w, d, h, ry = 0) {
  * in the city, and it stands on the plaza rather than floating over it.
  */
 function buildLandmark(pickable) {
+  const own = ctx // the halo animation below outlives the build
   const g = new THREE.Group()
   const core = { id: 'core', name: 'Inspironics Core' }
 
@@ -1721,7 +1723,7 @@ function buildLandmark(pickable) {
       crown.rotation.x = Math.sin(t * 0.35) * 0.2
       rings.forEach(({ ring, halo, i }) => {
         ring.rotation.y = t * (0.1 + i * 0.03) * (i % 2 ? -1 : 1)
-        halo.material.emissiveIntensity = (isNight ? 2.2 : 1.8) + Math.sin(t * 1.4 + i) * 0.7
+        halo.material.emissiveIntensity = (own.night ? 2.2 : 1.8) + Math.sin(t * 1.4 + i) * 0.7
       })
     },
   }
@@ -1773,7 +1775,10 @@ function windTurbine() {
     blades.add(UNIT_BOX, Math.cos(a) * mu(15), Math.sin(a) * mu(15), 0, { sx: mu(1.6), sy: mu(29), sz: mu(0.4), rz: a })
   }
   blades.add(UNIT_SPHERE, 0, 0, mu(0.3), { sx: mu(2.4), sy: mu(2.4), sz: mu(2.4) })
-  spinner.add(blades.mesh(M.white()))
+  // Excluded from the shadow map along with the cars and drones: the map is
+   // rendered once and frozen, so anything that keeps moving would otherwise
+   // leave a shadow behind where it used to be.
+  spinner.add(blades.mesh(M.white(), { shadow: false }))
   hub.add(spinner)
   g.add(hub)
 
@@ -1899,7 +1904,7 @@ function zoneAgri(zone, beacons) {
   boom.add(UNIT_CYL, 0, mu(3), 0, { sx: mu(1.2), sy: mu(6), sz: mu(1.2) })
   for (let i = 1; i <= 10; i++) boom.add(UNIT_BOX, 0, mu(5), i, { sx: mu(0.3), sy: mu(0.3), sz: 1 })
   for (let i = 2; i <= 10; i += 2) boom.add(UNIT_BOX, 0, mu(2.8), i, { sx: mu(0.24), sy: mu(4.4), sz: mu(0.24) })
-  pivot.add(boom.mesh(M.white()))
+  pivot.add(boom.mesh(M.white(), { shadow: false })) // sweeps: see windTurbine
   g.add(pivot)
 
   return { group: g, update: (t) => (pivot.rotation.y = t * 0.09) }
@@ -2272,6 +2277,7 @@ function markPickable(obj, node, out) {
  * a paved plinth, a steel column and a slowly turning marker above it.
  */
 function buildProductNode(p) {
+  const own = ctx // the light animation below outlives the build
   const g = new THREE.Group()
 
   const base = bag()
@@ -2299,8 +2305,7 @@ function buildProductNode(p) {
     )
   )
   const gem = new THREE.Mesh(new THREE.IcosahedronGeometry(1.5, 0), gemMat)
-  gem.position.y = 5.4
-  gem.castShadow = true
+  gem.position.y = 5.4 // no castShadow: it turns, and the shadow map is frozen
   g.add(gem)
 
   const cage = new THREE.Mesh(
@@ -2336,7 +2341,7 @@ function buildProductNode(p) {
       cage.rotation.y = -t * 0.3
       gem.position.y = 5.4 + Math.sin(t * 1.1) * 0.2
       cage.position.y = gem.position.y
-      light.intensity = (isNight ? 26 : 9) + Math.sin(t * 1.9) * (isNight ? 8 : 3)
+      light.intensity = (own.night ? 26 : 9) + Math.sin(t * 1.9) * (own.night ? 8 : 3)
     },
   }
 }
@@ -2465,7 +2470,24 @@ function buildDrones(count = 5) {
  * Assembles the whole city.
  * @returns {{ root: THREE.Group, pickable: THREE.Mesh[], update: (t:number, camera?:THREE.Camera)=>void, dispose: ()=>void }}
  */
-export function buildCity() {
+/**
+ * @param quality per-tier density knobs from lib/explorerQuality.js. Only the
+ * counts that cost real frame time are wired up — the street plan, districts
+ * and landmark are the same at every tier, so the city never looks unfinished.
+ */
+export function buildCity({ quality } = {}) {
+  const q = {
+    terrainSegments: 140,
+    trees: 1,
+    traffic: 1,
+    props: 1,
+    skyline: 1,
+    ...(quality || {}),
+  }
+
+  const own = { mats: new Map(), dayNight: [], night: false }
+  ctx = own
+
   const root = new THREE.Group()
   const pickable = []
   const updaters = []
@@ -2474,18 +2496,18 @@ export function buildCity() {
 
   const { avenues } = streetBearings()
 
-  root.add(buildTerrain())
+  root.add(buildTerrain(q.terrainSegments))
   const parks = buildParks(avenues)
   root.add(parks.group)
   const lake = lakeSpot(avenues)
   root.add(buildFarmland(lake))
   root.add(buildRoads(avenues))
   root.add(buildLake(lake))
-  root.add(buildTrees(avenues, parks.spots))
-  root.add(buildStreetLights(avenues))
-  root.add(buildSkyline())
+  root.add(buildTrees(avenues, parks.spots, q.trees))
+  root.add(buildStreetLights(avenues, q.props))
+  root.add(buildSkyline(q.skyline))
 
-  const traffic = buildTraffic(avenues)
+  const traffic = buildTraffic(avenues, q.traffic)
   root.add(traffic.group)
   updaters.push(traffic.update)
 
@@ -2570,9 +2592,16 @@ export function buildCity() {
     }
   }
 
+  /** Flip this city between the day and night looks. */
+  const setTimeOfDay = (mode) => {
+    own.night = mode === 'night'
+    for (const t of own.dayNight) t.material[t.prop] = own.night ? t.night : t.day
+  }
+
   /*
-   * Only geometry and the per-sprite label materials belong to this instance;
-   * textures and materials are module-level caches that a later mount reuses.
+   * Geometry, materials and the per-sprite label materials all belong to this
+   * instance. Textures do not — they stay in the module cache for the next
+   * mount, and `material.dispose()` leaves them alone.
    */
   const dispose = () => {
     root.traverse((o) => {
@@ -2585,9 +2614,13 @@ export function buildCity() {
       if (o.isInstancedMesh) o.dispose()
       if (o.isMesh || o.isLine || o.isPoints) o.geometry?.dispose?.()
     })
+    own.mats.forEach((m) => m.dispose())
+    own.mats.clear()
+    own.dayNight.length = 0
   }
 
-  return { root, pickable, update, dispose }
+  ctx = null
+  return { root, pickable, update, setTimeOfDay, dispose }
 }
 
 /**
@@ -2595,6 +2628,7 @@ export function buildCity() {
  * and re-aimed by `applyLightRig()` whenever the look changes.
  */
 export function buildLights(scene, { shadowSize = 4096 } = {}) {
+  // shadowSize 0 means the tier has turned shadow casting off completely
   // Ambient is kept deliberately low by day: the whole point of a raking
   // late-afternoon sun is the contrast between lit faces and shade, and a
   // bright sky IBL washes exactly that away.
@@ -2602,8 +2636,8 @@ export function buildLights(scene, { shadowSize = 4096 } = {}) {
   scene.add(hemi)
 
   const sun = new THREE.DirectionalLight('#ffcb92', 21)
-  sun.castShadow = true
-  sun.shadow.mapSize.set(shadowSize, shadowSize)
+  sun.castShadow = shadowSize > 0
+  sun.shadow.mapSize.set(shadowSize || 1024, shadowSize || 1024)
   sun.shadow.bias = -0.0004
   sun.shadow.normalBias = 0.04
   scene.add(sun)

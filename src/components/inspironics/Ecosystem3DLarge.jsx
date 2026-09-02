@@ -6,7 +6,8 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js'
-import { LOOKS, applyLightRig, buildCity, buildLights, makeSkyEnvironment, setTimeOfDay } from '../../lib/ecosystemCity'
+import { LOOKS, applyLightRig, buildCity, buildLights, makeSkyEnvironment } from '../../lib/ecosystemCity'
+import { TIERS } from '../../lib/explorerQuality'
 import { nodeById } from '../../lib/ecosystemData'
 
 /**
@@ -15,7 +16,7 @@ import { nodeById } from '../../lib/ecosystemData'
  * Owns the renderer, scene and picking; reports hover/click back through
  * `onHover` / `onSelect` so the surrounding React panel stays declarative.
  */
-export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
+export default function Ecosystem3DLarge({ onHover, onSelect, focusId, tier = 'high' }) {
   const hostRef = useRef(null)
   const apiRef = useRef(null)
   const [ready, setReady] = useState(false)
@@ -34,6 +35,11 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
     const host = hostRef.current
     if (!host) return
 
+    // Densities and terrain resolution are baked into the geometry, so a tier
+    // change means tearing the scene down and building it again.
+    const q = TIERS[tier] || TIERS.high
+    setReady(false)
+
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     let renderer
     try {
@@ -43,11 +49,11 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
       return
     }
 
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, q.pixelRatio))
     renderer.setSize(host.clientWidth, host.clientHeight)
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.outputColorSpace = THREE.SRGBColorSpace
-    renderer.shadowMap.enabled = true
+    renderer.shadowMap.enabled = q.shadowSize > 0
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     renderer.domElement.style.display = 'block'
     renderer.domElement.style.touchAction = 'none'
@@ -61,19 +67,18 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
       day: makeSkyEnvironment(renderer, 'day'),
       night: makeSkyEnvironment(renderer, 'night'),
     }
-    // aerial haze, tinted to the sky it fades into, so the hills read as distance
-    scene.fog = new THREE.FogExp2(new THREE.Color('#4f4a5a'), 0.001)
+    // aerial haze, tinted to the sky it fades into, so the hills read as
+    // distance; applyMode() re-tints it whenever the look changes
+    scene.fog = new THREE.FogExp2(new THREE.Color(LOOKS.day.fog.color), LOOKS.day.fog.density)
 
     const camera = new THREE.PerspectiveCamera(38, host.clientWidth / host.clientHeight, 0.5, 1600)
     camera.position.set(126, 92, 158)
 
-    // a big shadow map is what makes the low sun's long shadows readable; step
-    // it down on machines that are already pushing pixels
-    const lights = buildLights(scene, {
-      shadowSize: window.devicePixelRatio > 1.5 || window.innerWidth < 900 ? 2048 : 4096,
-    })
+    // a big shadow map is what makes the low sun's long shadows readable, and
+    // it is also the single most expensive thing in the frame
+    const lights = buildLights(scene, { shadowSize: q.shadowSize })
 
-    const city = buildCity()
+    const city = buildCity({ quality: q })
     scene.add(city.root)
 
     const controls = new OrbitControls(camera, renderer.domElement)
@@ -95,12 +100,14 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
     composer.addPass(new RenderPass(scene, camera))
     // strength and threshold are set per look: barely there by day so only
     // lamps and windows lift, wide open at night so the city glows
-    const bloom = new UnrealBloomPass(new THREE.Vector2(host.clientWidth, host.clientHeight), 0.2, 0.7, 0.82)
-    composer.addPass(bloom)
+    const bloom = q.bloom
+      ? new UnrealBloomPass(new THREE.Vector2(host.clientWidth, host.clientHeight), 0.2, 0.7, 0.82)
+      : null
+    if (bloom) composer.addPass(bloom)
     composer.addPass(new OutputPass())
     // the composer's render target has no MSAA, so edges need SMAA
-    const smaa = new SMAAPass(host.clientWidth, host.clientHeight)
-    composer.addPass(smaa)
+    const smaa = q.smaa ? new SMAAPass(host.clientWidth, host.clientHeight) : null
+    if (smaa) composer.addPass(smaa)
     composer.setSize(host.clientWidth, host.clientHeight)
 
     /* --------------------------------------------------------- time of day -- */
@@ -122,12 +129,14 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
       scene.fog.density = look.fog.density
 
       renderer.toneMappingExposure = look.exposure
-      bloom.strength = look.bloom.strength
-      bloom.radius = look.bloom.radius
-      bloom.threshold = look.bloom.threshold
+      if (bloom) {
+        bloom.strength = look.bloom.strength
+        bloom.radius = look.bloom.radius
+        bloom.threshold = look.bloom.threshold
+      }
 
       applyLightRig(lights, mode)
-      setTimeOfDay(mode)
+      city.setTimeOfDay(mode)
     }
 
     applyMode(nightRef.current ? 'night' : 'day')
@@ -246,7 +255,7 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
       // are all excluded — so the 4K shadow map is rendered a couple of times
       // and then frozen. Re-rendering it each frame costs more than everything
       // else in the scene put together.
-      if (++frames === 3) lights.sun.shadow.autoUpdate = false
+      if (++frames === 3 && lights.sun.castShadow) lights.sun.shadow.autoUpdate = false
     }
     tick()
 
@@ -259,8 +268,8 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
       camera.updateProjectionMatrix()
       renderer.setSize(w, h)
       composer.setSize(w, h)
-      bloom.setSize(w, h)
-      smaa.setSize(w, h)
+      bloom?.setSize(w, h)
+      smaa?.setSize(w, h)
     })
     ro.observe(host)
 
@@ -337,7 +346,7 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
       if (el.parentNode === host) host.removeChild(el)
       apiRef.current = null
     }
-  }, [])
+  }, [tier])
 
   useEffect(() => {
     apiRef.current?.applyMode?.(night ? 'night' : 'day')
