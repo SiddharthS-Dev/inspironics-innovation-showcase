@@ -20,14 +20,18 @@ export default function Footer({ cats, techs, onRoute }) {
           </div>
 
           <FooterCol title="Explore">
-            {[
+            {/** @type {[string, () => void][]} */ ([
               ['Ecosystem', () => go('ecosystem')],
               ['Gallery', () => go('gallery')],
               ['Spotlight', () => go('spotlight')],
               ['About', () => go('about')],
               ['Contact', () => go('contact')],
-            ].map(([label, fn]) => (
-              <button key={label} onClick={fn} className="block text-left text-[13px] text-muted transition hover:text-cyan-glow">
+            ]).map(([label, fn]) => (
+              <button
+                key={label}
+                onClick={fn}
+                className="block text-left text-[13px] text-muted transition hover:text-cyan-glow"
+              >
                 {label}
               </button>
             ))}

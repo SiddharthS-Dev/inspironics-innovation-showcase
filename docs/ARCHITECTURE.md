@@ -106,9 +106,10 @@ into its chunk.
   tests resolve, with no runner configuration at all.
 - **`resolve.alias` in `vite.config.js`** — what the bundler resolves.
 
-They must not drift. `jsconfig.json` mirrors them again for editors. Node ESM
-does not resolve a directory to its `index.js`, so barrel specifiers have
-explicit entries in the `imports` map.
+They must not drift — a mismatch fails either the test suite or the build
+immediately. `tsconfig.json` mirrors them a third time, for the type checker and
+for editors. Node ESM does not resolve a directory to its `index.js`, so barrel
+specifiers have explicit entries in the `imports` map.
 
 Convention: `.js` imports carry their extension (Node needs it), `.jsx` imports
 omit it (only the bundler ever loads them).
@@ -148,19 +149,38 @@ boundary: losing the city should still leave you a gallery.
 | Command | What it does |
 | --- | --- |
 | `npm run lint:arch` | layer and boundary rules |
-| `npm test` | 37 unit tests on `node:test`, no runner config |
+| `npm run typecheck` | `checkJs` over all of `src` — the JSDoc contracts, enforced |
+| `npm test` | 53 tests on `node:test`: domain units plus jsdom component tests |
 | `npm run check:routes` | asserts every ecosystem node resolves to a non-empty gallery |
-| `npm run build` | all three, then `vite build` |
+| `npm run check:bundle` | initial payload against a 90 KB gz budget |
+| `npm run build` | all of the above, around `vite build` |
 | `npm run smoke` | end-to-end browser pass (needs a dev server and Chrome) |
+
+### Payload
+
+The entry graph is what a first-time visitor downloads before anything renders,
+and it is budgeted:
+
+| | gzipped |
+| --- | --- |
+| entry + React vendor chunk (eager) | ~58 KB |
+| `EcosystemCanvas` incl. three.js (lazy, on scroll) | ~197 KB |
+| `MonthlyReport` incl. jsPDF (lazy, on `/report`) | ~118 KB |
+
+three.js is loaded by an `IntersectionObserver` gate, so the "3D off" tier and
+the auth routes never fetch it at all.
 
 ## Known trade-offs
 
-- **Still JavaScript.** The contracts are JSDoc typedefs, which document and
-  autocomplete but do not fail a build. A TypeScript migration is the obvious
-  next step; the layering above is what makes it doable feature by feature.
-- **Two `Lightbox` instances.** `Home` renders one for copilot and share-link
-  opens, `Gallery` another for card clicks. A reference-counted scroll lock
-  makes the overlap harmless, but a single hoisted instance would be better.
+- **Still JavaScript, but checked.** `checkJs` is on for all of `src` with
+  `strict: false`, so the JSDoc contracts fail the build — but a wrong
+  repository implementation is caught by the seam test, not the compiler. A
+  `.ts` migration is cheaper now that the errors are fixed (ADR 6).
+- **Dependency advisories.** `npm audit` reports a critical ReDoS in jsPDF and
+  an open-redirect in react-router. Both need major-version upgrades and
+  deserve their own pass.
+- **jsdom is not a browser.** Layout, compositing and focus visibility still
+  need the smoke script.
 - **`inspironics/`** at the repo root is the legacy image tree plus an unused
   Next.js prototype. The Vite plugin serves `inspironics/{thumbs,full}` at
   `/images`; the rest is not part of this app.

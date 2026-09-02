@@ -60,10 +60,25 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          three: ['three'],
-          pdf: ['jspdf'],
-          motion: ['framer-motion'],
+        /*
+         * Only React and the router get a manual chunk, and deliberately so.
+         *
+         * They are in the entry graph already, so a stable vendor file they can
+         * be cached from is a straight win. three.js and jsPDF are the opposite:
+         * they are reachable only through lazy routes, and giving them manual
+         * chunks made Rollup host Vite's dynamic-import preload helper inside
+         * one of them. Every lazy route needs that helper, so the entry ended up
+         * statically importing the jsPDF chunk and every visitor downloaded
+         * 114 KB gzipped of PDF machinery to look at the login page. Left to
+         * itself, Rollup puts them in the chunk of the route that needs them.
+         */
+        manualChunks(id) {
+          const norm = id.split(path.sep).join('/')
+          if (!norm.includes('/node_modules/')) return undefined
+          if (/\/node_modules\/(react|react-dom|scheduler|react-router|react-router-dom)\//.test(norm)) {
+            return 'react'
+          }
+          return undefined
         },
       },
     },

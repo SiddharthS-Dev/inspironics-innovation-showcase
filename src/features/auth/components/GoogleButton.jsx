@@ -45,6 +45,7 @@ export default function GoogleButton({ onSession, onError, label = 'Continue wit
       })
     }
 
+    /** @type {HTMLScriptElement | null} */
     let script = document.querySelector(`script[src="${SRC}"]`)
     if (script) {
       if (window.google) render()

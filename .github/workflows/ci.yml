@@ -22,7 +22,10 @@ jobs:
       - name: Architecture boundaries
         run: npm run lint:arch
 
-      - name: Unit tests
+      - name: Types (checkJs over src)
+        run: npm run typecheck
+
+      - name: Unit and component tests
         run: npm test
 
       - name: Ecosystem routes resolve
@@ -30,6 +33,9 @@ jobs:
 
       - name: Production build
         run: npx vite build
+
+      - name: Initial payload budget
+        run: npm run check:bundle
 
       - uses: actions/upload-artifact@v4
         if: success()

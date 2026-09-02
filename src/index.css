@@ -143,6 +143,32 @@
   }
 }
 
+/* Visible only once focused, which is the whole point of a skip link. */
+.skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 200;
+  transform: translateY(-200%);
+  border-radius: 0.5rem;
+  border: 1px solid rgb(255 255 255 / 0.2);
+  background: #0b0b10;
+  padding: 0.6rem 1rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #f4f4f9;
+  transition: transform 0.15s ease;
+}
+/* :focus, not :focus-visible — the link must also reveal itself when focus is
+   moved programmatically, e.g. by a screen reader jumping to the first link. */
+.skip-link:focus {
+  transform: translateY(0);
+  outline: 2px solid #00f0ff;
+  outline-offset: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

@@ -11,9 +11,24 @@ export default function Home() {
   const [error, setError] = useState('')
   const [introDone, setIntroDone] = useState(false)
   const [activeFilter, setActiveFilter] = useState(null)
-  // A plate opened outside the gallery's own filters: by the copilot, or by the
-  // #<id> deep link that the lightbox's Share button produces.
-  const [focusItem, setFocusItem] = useState(null)
+  /*
+   * The one plate viewer on the page.
+   *
+   * There used to be three — one in the gallery, one in the spotlight, one here
+   * for the copilot and #<id> share links — and each of them managed the body
+   * scroll lock, so overlapping ones could leave the page permanently
+   * unscrollable. Hoisting it here also keeps prev/next meaningful: the caller
+   * passes the list it wants navigated, so the gallery still steps through the
+   * current filter while the copilot steps through the whole corpus.
+   *
+   * @type {[{items: object[], index: number} | null, Function]}
+   */
+  const [viewer, setViewer] = useState(null)
+
+  const openPlate = useCallback((items, index) => {
+    if (index == null || index < 0 || !items?.length) return
+    setViewer({ items, index })
+  }, [])
 
   useEffect(() => {
     loadShowcase()
@@ -37,16 +52,16 @@ export default function Home() {
     const openFromHash = () => {
       const id = decodeURIComponent(window.location.hash.replace(/^#/, ''))
       if (!id) return
-      const it = data.items.find((x) => x.f === id)
-      if (it) setFocusItem(it)
+      const index = data.items.findIndex((x) => x.f === id)
+      if (index >= 0) openPlate(data.items, index)
     }
     openFromHash()
     window.addEventListener('hashchange', openFromHash)
     return () => window.removeEventListener('hashchange', openFromHash)
-  }, [data])
+  }, [data, openPlate])
 
-  const closeFocus = useCallback(() => {
-    setFocusItem(null)
+  const closePlate = useCallback(() => {
+    setViewer(null)
     if (window.location.hash) {
       window.history.replaceState(null, '', window.location.pathname + window.location.search)
     }
@@ -78,7 +93,7 @@ export default function Home() {
 
       <Navbar />
 
-      <main className="relative">
+      <main id="main" className="relative">
         <HeroSection stats={data} />
         <EcosystemExplorer items={data.items} onRoute={route} />
         <Gallery
@@ -86,23 +101,22 @@ export default function Home() {
           activeFilter={activeFilter}
           onClearActive={() => setActiveFilter(null)}
           onAdded={() => setActiveFilter(null)}
+          onOpenPlate={openPlate}
         />
-        <DailySpotlight item={spotlight} items={data.items} />
+        <DailySpotlight item={spotlight} items={data.items} onOpenPlate={openPlate} />
         <AboutSection stats={data} heroItem={spotlight} />
         <ContactSection />
       </main>
 
       <Footer cats={data.cats} techs={data.techs} onRoute={route} />
 
-      <CopilotPanel onOpenItem={setFocusItem} />
+      <CopilotPanel onOpenItem={(it) => openPlate(data.items, data.items.findIndex((x) => x.f === it.f))} />
 
-      {/* Opened by the copilot or a share link, so it spans the full corpus
-          rather than whatever the gallery is currently filtered to. */}
       <Lightbox
-        items={data.items}
-        index={focusItem ? data.items.findIndex((x) => x.f === focusItem.f) : null}
-        onIndex={(i) => setFocusItem(data.items[i])}
-        onClose={closeFocus}
+        items={viewer?.items ?? data.items}
+        index={viewer?.index ?? null}
+        onIndex={(index) => setViewer((v) => (v ? { ...v, index } : v))}
+        onClose={closePlate}
       />
     </>
   )

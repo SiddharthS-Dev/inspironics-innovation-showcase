@@ -73,7 +73,7 @@ export const CHOICES = [
 export function detectTier() {
   if (typeof navigator === 'undefined' || typeof window === 'undefined') return 'high'
 
-  const mem = navigator.deviceMemory || 0
+  const mem = navigator.deviceMemory || 0 // see types/globals.d.ts
   const cores = navigator.hardwareConcurrency || 0
   const coarse = window.matchMedia?.('(pointer: coarse)').matches
   const small = Math.min(window.innerWidth, window.innerHeight) < 700

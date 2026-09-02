@@ -112,7 +112,7 @@ export default function HeroSection({ stats }) {
   )
 }
 
-function Stat({ value, label, accent }) {
+function Stat({ value, label, accent = false }) {
   return (
     <div
       className={`glass rounded-2xl px-5 py-4 ${accent ? 'border-cyan-glow/30 shadow-glow' : ''}`}

@@ -373,7 +373,18 @@ export default function EcosystemCanvas({ onHover, onSelect, focusId, tier = 'hi
 
   return (
     <div className="relative h-full w-full">
-      <div ref={hostRef} className="h-full w-full cursor-grab active:cursor-grabbing" />
+      {/*
+        A WebGL canvas cannot be navigated with a keyboard or read by a screen
+        reader, so it is labelled and described as the decorative index it is —
+        the zone buttons under the section are the equivalent path.
+      */}
+      <div
+        ref={hostRef}
+        role="img"
+        aria-label="Interactive 3D model of the Inspironics estate"
+        aria-describedby="ecosystem-alt"
+        className="h-full w-full cursor-grab active:cursor-grabbing"
+      />
       {!ready && (
         <div className="absolute inset-0 grid place-items-center bg-ink/80">
           <div className="flex flex-col items-center gap-3">

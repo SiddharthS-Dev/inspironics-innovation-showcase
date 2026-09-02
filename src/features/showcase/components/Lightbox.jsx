@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { relatedTo } from '../model/showcaseData.js'
-import { lockScroll } from '#shared/lib/scrollLock.js'
+import { useDialog } from '#shared/lib/useDialog.js'
 
 /** Download extension per image type — the corpus is webp, uploads are not. */
 const EXT_BY_TYPE = {
@@ -35,23 +35,21 @@ export default function Lightbox({ items, index, onIndex, onClose }) {
     [index, items.length, onIndex, reset]
   )
 
+  // scroll lock, focus containment, focus restore and Escape
+  const dialogRef = useDialog(item != null, onClose)
+
   useEffect(() => {
     if (item == null) return
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose()
-      else if (e.key === 'ArrowRight') step(1)
+      if (e.key === 'ArrowRight') step(1)
       else if (e.key === 'ArrowLeft') step(-1)
       else if (e.key === '+' || e.key === '=') setZoom((z) => Math.min(5, z * 1.3))
       else if (e.key === '-') setZoom((z) => Math.max(1, z / 1.3))
       else if (e.key === '0') reset()
     }
     window.addEventListener('keydown', onKey)
-    const releaseScroll = lockScroll()
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      releaseScroll()
-    }
-  }, [item, onClose, step, reset])
+    return () => window.removeEventListener('keydown', onKey)
+  }, [item, step, reset])
 
   useEffect(() => {
     if (zoom === 1) setPan({ x: 0, y: 0 })
@@ -101,6 +99,10 @@ export default function Lightbox({ items, index, onIndex, onClose }) {
     <AnimatePresence>
       {item && (
         <motion.div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${item.title} — full blueprint`}
           className="fixed inset-0 z-[90] flex flex-col bg-[#040407]/97 backdrop-blur-xl"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -310,7 +312,7 @@ export default function Lightbox({ items, index, onIndex, onClose }) {
   )
 }
 
-const IconBtn = ({ children, onClick, label, danger }) => (
+const IconBtn = ({ children, onClick, label, danger = false }) => (
   <button
     onClick={onClick}
     aria-label={label}

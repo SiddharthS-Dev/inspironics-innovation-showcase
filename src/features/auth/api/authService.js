@@ -25,6 +25,21 @@ const CODE_ERRORS = {
   locked: 'Too many incorrect attempts — request a new code.',
 }
 
+/**
+ * Sign-in refused because the account has not been verified yet. Carries the
+ * freshly issued code so the caller can route straight to the verify page.
+ */
+export class UnverifiedAccountError extends Error {
+  /** @param {string} email @param {string} devCode */
+  constructor(email, devCode) {
+    super('This account is not verified yet.')
+    this.name = 'UnverifiedAccountError'
+    this.code = 'UNVERIFIED'
+    this.email = email
+    this.devCode = devCode
+  }
+}
+
 /** @param {import('./authRepository.js').AuthRepository} repo */
 export function createAuthService(repo) {
   /** Issue a code, persist only its hash, and hand the plaintext back. */
@@ -41,7 +56,7 @@ export function createAuthService(repo) {
     if (!stored || stored.email !== email) throw new Error(missingMessage)
 
     const result = await checkCodeRecord(stored, code)
-    if (result.ok) return result.record
+    if (result.ok === true) return result.record
 
     if (result.reason === 'wrong') {
       repo.writeToken(kind, result.record)
@@ -139,11 +154,7 @@ export function createAuthService(repo) {
       }
 
       if (!user.verified) {
-        const err = new Error('This account is not verified yet.')
-        err.code = 'UNVERIFIED'
-        err.email = id
-        err.devCode = await issue('verification', id, authPolicy.otpTtlMs)
-        throw err
+        throw new UnverifiedAccountError(id, await issue('verification', id, authPolicy.otpTtlMs))
       }
       return startSession(user)
     },

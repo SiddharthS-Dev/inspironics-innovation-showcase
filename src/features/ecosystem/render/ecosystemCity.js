@@ -1097,7 +1097,10 @@ function buildParks(avenues) {
   return { group: g, spots }
 }
 
-/** The widest wedge between two avenues — where the lake goes. */
+/**
+ * The widest wedge between two avenues — where the lake goes.
+ * @returns {[number, number]} the lake centre, as x/z
+ */
 function lakeSpot(avenues) {
   let best = 0
   let gap = 0
@@ -2475,7 +2478,7 @@ function buildDrones(count = 5) {
  * counts that cost real frame time are wired up — the street plan, districts
  * and landmark are the same at every tier, so the city never looks unfinished.
  */
-export function buildCity({ quality } = {}) {
+export function buildCity(/** @type {{ quality?: Record<string, number> }} */ { quality } = {}) {
   const q = {
     terrainSegments: 140,
     trees: 1,

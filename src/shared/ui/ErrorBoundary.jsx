@@ -1,4 +1,5 @@
 import { Component } from 'react'
+import { reportError } from '#shared/lib/reporter.js'
 
 /**
  * Catches render-time errors so one broken subtree does not take the page with
@@ -20,9 +21,11 @@ export default class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
-    // The console is the only sink this build has. A deployment would forward
-    // this to whatever it uses for error reporting.
-    console.error('[ErrorBoundary]', this.props.label || 'app', error, info?.componentStack)
+    reportError(error, {
+      source: 'ErrorBoundary',
+      label: this.props.label || 'app',
+      componentStack: info?.componentStack,
+    })
   }
 
   render() {

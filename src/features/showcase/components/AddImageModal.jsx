@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { addCustomItem } from '../model/customItems.js'
+import { useDialog } from '#shared/lib/useDialog.js'
 
 const EMPTY = {
   title: '',
@@ -33,11 +34,9 @@ export default function AddImageModal({ open, cats, techs, onClose, onAdded }) {
     }
   }, [open])
 
-  useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose()
-    if (open) window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  // Escape, focus containment and focus restore. The overlay scrolls itself,
+  // so the body lock stays off here.
+  const dialogRef = useDialog(open, onClose, { lockScroll: false })
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
@@ -88,6 +87,10 @@ export default function AddImageModal({ open, cats, techs, onClose, onAdded }) {
           onClick={(e) => e.target === e.currentTarget && onClose()}
         >
           <motion.form
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Add a new architecture plate"
             onSubmit={submit}
             initial={{ opacity: 0, y: 26, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -213,7 +216,7 @@ export default function AddImageModal({ open, cats, techs, onClose, onAdded }) {
   )
 }
 
-const Field = ({ label, children, full }) => (
+const Field = ({ label, children, full = false }) => (
   <label className={`block ${full ? 'sm:col-span-2' : ''}`}>
     <span className="label-mono">{label}</span>
     <div className="mt-1.5">{children}</div>

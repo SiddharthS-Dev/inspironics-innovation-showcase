@@ -8,7 +8,7 @@ import { motion } from 'framer-motion'
  * gallery, the spotlight and the about section all reached into the ecosystem
  * feature to render a heading. It belongs to no feature, so it lives here.
  */
-export default function SectionHead({ eyebrow, title, sub, right }) {
+export default function SectionHead({ eyebrow, title, sub = null, right = null }) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-6">
       <motion.div

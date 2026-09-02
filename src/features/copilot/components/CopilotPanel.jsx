@@ -4,12 +4,17 @@ import Markdown from '#shared/ui/Markdown'
 import Logo from '#shared/ui/Logo'
 import { CopilotNote, SUGGESTIONS, answerQuestion, getShowcaseKnowledge, renderCards } from '../model/copilotKnowledge.js'
 import { useAuth } from '#features/auth'
+import { useDialog } from '#shared/lib/useDialog.js'
 
 const sessionId = `s_${Date.now().toString(36)}`
 
 export default function CopilotPanel({ onOpenItem }) {
   const { user } = useAuth()
   const [open, setOpen] = useState(false)
+
+  // Non-modal popover: Escape closes it and focus moves in and back out, but
+  // focus is not trapped — the page behind stays usable while it is open.
+  const panelRef = useDialog(open, () => setOpen(false), { lockScroll: false, trapFocus: false })
   const [knowledge, setKnowledge] = useState(null)
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
@@ -91,6 +96,9 @@ export default function CopilotPanel({ onOpenItem }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+            ref={panelRef}
+            role="dialog"
+            aria-label="Showcase copilot"
             className="glass-strong fixed bottom-24 right-4 z-[70] flex h-[min(620px,calc(100dvh-140px))] w-[min(400px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl shadow-lift"
           >
             <header className="flex items-center gap-3 border-b border-white/10 px-4 py-3.5">

@@ -1,10 +1,7 @@
-import { useState } from 'react'
 import { motion } from 'framer-motion'
 import SectionHead from '#shared/ui/SectionHead'
-import Lightbox from './Lightbox'
 
-export default function DailySpotlight({ item, items }) {
-  const [open, setOpen] = useState(null)
+export default function DailySpotlight({ item, items, onOpenPlate }) {
   if (!item) return null
 
   const today = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
@@ -26,7 +23,7 @@ export default function DailySpotlight({ item, items }) {
       >
         <div className="grid lg:grid-cols-[1.15fr_1fr]">
           <button
-            onClick={() => setOpen(items.findIndex((x) => x.f === item.f))}
+            onClick={() => onOpenPlate?.(items, items.findIndex((x) => x.f === item.f))}
             className="group relative min-h-[300px] overflow-hidden bg-black/40 lg:min-h-[520px]"
           >
             <img
@@ -105,7 +102,6 @@ export default function DailySpotlight({ item, items }) {
         </div>
       </motion.div>
 
-      <Lightbox items={items} index={open} onIndex={setOpen} onClose={() => setOpen(null)} />
     </section>
   )
 }

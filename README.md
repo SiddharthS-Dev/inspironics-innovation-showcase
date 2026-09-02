@@ -76,10 +76,13 @@ docs/
   adr/                             decision records
 scripts/
   checkArchitecture.mjs            boundary guard (npm run lint:arch)
+  checkBundle.mjs                  initial-payload budget (npm run check:bundle)
   checkRoutes.mjs                  every ecosystem node resolves to plates
   buildEnrichment.mjs              regenerates the image -> product map
   smoke.mjs                        browser smoke test (puppeteer-core + Chrome)
-tests/                             node:test units — no runner config
+tests/                             node:test — domain units plus jsdom
+                                   component tests, no runner config
+types/globals.d.ts                 ambient browser/vendor globals for checkJs
 inspironics/                       the 235 plates: thumbs/*.webp and full/*.webp
 public/data/showcase.json          the corpus
 ```

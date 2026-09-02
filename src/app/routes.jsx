@@ -12,7 +12,7 @@ const Home = lazy(() => import('./pages/Home.jsx'))
  * @type {import('#shared/lib/routeSpec.js').RouteSpec[]}
  */
 export const routes = [
-  { path: '/', Component: Home, protected: true },
+  { path: '/', Component: Home, protected: true, title: '' },
   ...reportRoutes,
   ...authRoutes,
 ]

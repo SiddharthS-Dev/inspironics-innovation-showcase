@@ -15,9 +15,9 @@ const ResetPassword = lazy(() => import('./pages/ResetPassword.jsx'))
 
 /** @type {import('#shared/lib/routeSpec.js').RouteSpec[]} */
 export const authRoutes = [
-  { path: '/login', Component: Login },
-  { path: '/register', Component: Register },
-  { path: '/verify', Component: VerifyOtp },
-  { path: '/forgot-password', Component: ForgotPassword },
-  { path: '/reset-password', Component: ResetPassword },
+  { path: '/login', Component: Login, title: 'Sign in' },
+  { path: '/register', Component: Register, title: 'Create an account' },
+  { path: '/verify', Component: VerifyOtp, title: 'Verify your email' },
+  { path: '/forgot-password', Component: ForgotPassword, title: 'Reset your password' },
+  { path: '/reset-password', Component: ResetPassword, title: 'Choose a new password' },
 ]

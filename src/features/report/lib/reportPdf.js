@@ -10,11 +10,22 @@ const PAGE = { w: 595.28, h: 841.89 }
 const M = { l: 48, r: 48, t: 56, b: 62 }
 const CONTENT_W = PAGE.w - M.l - M.r
 
+/*
+ * Tuples, not arrays: these are spread into jsPDF's setFillColor/setTextColor,
+ * which take exactly three numbers. Typed as number[] the spread is unchecked,
+ * and a four-element palette entry would sail through to a runtime error.
+ */
+/** @type {[number, number, number]} */
 const INK = [10, 10, 12]
+/** @type {[number, number, number]} */
 const PANEL = [16, 17, 24]
+/** @type {[number, number, number]} */
 const CY = [0, 176, 200]
+/** @type {[number, number, number]} */
 const EM = [0, 190, 140]
+/** @type {[number, number, number]} */
 const CHALK = [244, 244, 249]
+/** @type {[number, number, number]} */
 const MUTED = [150, 152, 165]
 
 export function buildReportModel(data, date = new Date()) {
@@ -94,7 +105,7 @@ export function generateReportPdf(data, { date = new Date(), save = true } = {})
     return lines.length * size * lh
   }
 
-  const rule = (yy, color = [40, 42, 54]) => {
+  const rule = (yy, /** @type {[number, number, number]} */ color = [40, 42, 54]) => {
     doc.setDrawColor(...color)
     doc.setLineWidth(0.7)
     doc.line(M.l, yy, PAGE.w - M.r, yy)

@@ -2,20 +2,18 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import FlipCard from './FlipCard'
 import GalleryFilters from './GalleryFilters'
-import Lightbox from './Lightbox'
 import AddImageModal from './AddImageModal'
 import SectionHead from '#shared/ui/SectionHead'
 
 const PAGE = 48
 
-export default function Gallery({ data, activeFilter, onClearActive, onAdded }) {
+export default function Gallery({ data, activeFilter, onClearActive, onAdded, onOpenPlate }) {
   const [cat, setCat] = useState('')
   const [tech, setTech] = useState([])
   const [flags, setFlags] = useState({ esg: false, ai: false, iot: false })
   const [q, setQ] = useState('')
   const [sort, setSort] = useState('featured')
   const [limit, setLimit] = useState(PAGE)
-  const [lightbox, setLightbox] = useState(null)
   const [adding, setAdding] = useState(false)
 
   const { items, cats, techs } = data
@@ -144,7 +142,9 @@ export default function Gallery({ data, activeFilter, onClearActive, onAdded }) 
                 key={item.f}
                 item={item}
                 index={i % PAGE}
-                onOpen={(it) => setLightbox(filtered.findIndex((x) => x.f === it.f))}
+                // the viewer lives in Home; hand it the filtered list so
+                // prev/next still steps through what is on screen
+                onOpen={(it) => onOpenPlate?.(filtered, filtered.findIndex((x) => x.f === it.f))}
               />
             ))}
           </div>
@@ -158,8 +158,6 @@ export default function Gallery({ data, activeFilter, onClearActive, onAdded }) 
           )}
         </>
       )}
-
-      <Lightbox items={filtered} index={lightbox} onIndex={setLightbox} onClose={() => setLightbox(null)} />
 
       <AddImageModal
         open={adding}

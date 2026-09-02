@@ -13,8 +13,10 @@ const raw = import.meta.env ?? {}
 export const env = {
   /** Enables the real Google Identity button; falsy falls back to a demo sign-in. */
   googleClientId: raw.VITE_GOOGLE_CLIENT_ID || '',
-  mode: raw.MODE || raw.NODE_ENV || 'production',
+  mode: raw.MODE || 'production',
   isDev: !!raw.DEV,
+  /** POST target for `shared/lib/reporter`. Unset means log-only. */
+  errorEndpoint: raw.VITE_ERROR_ENDPOINT || '',
 }
 
 /**

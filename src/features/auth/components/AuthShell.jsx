@@ -35,7 +35,7 @@ export default function AuthShell({ eyebrow, title, sub, children, footer }) {
   )
 }
 
-export const Field = ({ label, hint, ...props }) => (
+export const Field = ({ label, hint = null, ...props }) => (
   <label className="block">
     <span className="label-mono">{label}</span>
     <input className="field mt-1.5" {...props} />

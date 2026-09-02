@@ -9,6 +9,7 @@
  * @property {string} path
  * @property {import('react').ComponentType} Component
  * @property {boolean} [protected] wrap the element in ProtectedRoute
+ * @property {string} [title] document title for the route, without the site suffix
  */
 
 export {}

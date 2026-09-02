@@ -1,10 +1,28 @@
-import { useCallback, useMemo, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import EcosystemCanvas from './EcosystemCanvas.jsx'
 import { CHOICES, TIERS, loadChoice, resolveTier, saveChoice } from '../render/explorerQuality.js'
 import { PRODUCT_NODES, STACK_LAYERS, ZONES, countMatches, routeLabel } from '../model/ecosystemData.js'
 import SectionHead from '#shared/ui/SectionHead'
 import ErrorBoundary from '#shared/ui/ErrorBoundary'
+
+/*
+ * three.js is ~133 KB gzipped and the canvas is the only thing that needs it,
+ * so it is loaded lazily and only once the section is near the viewport. That
+ * way the "3D off" tier costs nothing, and /login and /report never pay for it.
+ */
+const EcosystemCanvas = lazy(() => import('./EcosystemCanvas.jsx'))
+
+/** Holds the canvas box's shape while three.js is still on its way. */
+function CanvasPlaceholder({ label }) {
+  return (
+    <div className="grid h-full place-items-center" role="status" aria-live="polite">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-9 w-9 animate-spinSlow rounded-full border-2 border-white/10 border-t-cyan-glow" />
+        <p className="label-mono">{label}</p>
+      </div>
+    </div>
+  )
+}
 
 export default function EcosystemExplorer({ items, onRoute }) {
   const [hover, setHover] = useState(null)
@@ -27,13 +45,28 @@ export default function EcosystemExplorer({ items, onRoute }) {
 
   const open = useCallback((node) => setSelected(node), [])
 
+  // Gate the lazy import on proximity rather than on mount, so scrolling
+  // decides when three.js is fetched.
+  const sectionRef = useRef(null)
+  const [near, setNear] = useState(false)
+  useEffect(() => {
+    const el = sectionRef.current
+    if (!el || near) return
+    const io = new IntersectionObserver(
+      ([entry]) => entry.isIntersecting && setNear(true),
+      { rootMargin: '600px 0px' }
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [near])
+
   const send = (node) => {
     onRoute?.(node.route, node)
     document.getElementById('gallery')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   return (
-    <section id="ecosystem" className="section-pad relative z-10">
+    <section id="ecosystem" ref={sectionRef} className="section-pad relative z-10">
       <SectionHead
         eyebrow="Ecosystem Explorer"
         title="One city. Every system."
@@ -89,7 +122,13 @@ export default function EcosystemExplorer({ items, onRoute }) {
                 </div>
               )}
             >
-              <EcosystemCanvas onHover={setHover} onSelect={open} focusId={selected?.id} tier={tier} />
+              <Suspense fallback={<CanvasPlaceholder label="Loading the city" />}>
+                {near ? (
+                  <EcosystemCanvas onHover={setHover} onSelect={open} focusId={selected?.id} tier={tier} />
+                ) : (
+                  <CanvasPlaceholder label="Scroll to build the city" />
+                )}
+              </Suspense>
             </ErrorBoundary>
           )}
 
@@ -184,8 +223,12 @@ export default function EcosystemExplorer({ items, onRoute }) {
         </div>
       </div>
 
-      {/* zone quick-filter pills */}
-      <div className="mt-6 flex flex-wrap gap-2.5">
+      {/* zone quick-filter pills — the keyboard-equivalent path into the model */}
+      <p id="ecosystem-alt" className="mt-6 text-sm text-muted">
+        The city is a visual index. Every zone and product in it is listed below as a button, so the whole model is
+        reachable without it.
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2.5">
         {[...ZONES, ...PRODUCT_NODES].map((n) => (
           <button
             key={n.id}
