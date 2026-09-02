@@ -10,11 +10,20 @@ const read = () => {
   }
 }
 
+/**
+ * Persist, then announce. The order matters: a quota failure has to reach the
+ * caller *before* anything tells the user their plate was saved, or the card
+ * shows up in the gallery and quietly vanishes on the next reload.
+ */
 const write = (items) => {
   try {
     localStorage.setItem(KEY, JSON.stringify(items))
   } catch (err) {
-    console.warn('Could not persist custom items', err)
+    const e = new Error(
+      'Browser storage is full. Remove a locally added plate, or use a smaller image, and try again.'
+    )
+    e.cause = err
+    throw e
   }
   window.dispatchEvent(new CustomEvent('inspironics:custom-items'))
   return items

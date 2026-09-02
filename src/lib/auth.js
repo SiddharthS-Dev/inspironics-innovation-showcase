@@ -114,6 +114,12 @@ export const api = {
     if (String(code).trim() !== p.code) throw new Error('That code is not correct.')
 
     const all = users()
+    if (!all[id]) {
+      // a verification can outlive its account if storage was cleared in part,
+      // or edited from another tab; drop the dead code rather than throw raw
+      localStorage.removeItem(PENDING_KEY)
+      throw new Error('That account no longer exists — please register again.')
+    }
     all[id].verified = true
     saveUsers(all)
     localStorage.removeItem(PENDING_KEY)
@@ -187,6 +193,10 @@ export const api = {
     if (issues.length) throw new Error(`Password needs ${issues.join(', ')}.`)
 
     const all = users()
+    if (!all[id]) {
+      localStorage.removeItem(RESET_KEY)
+      throw new Error('That account no longer exists — please register again.')
+    }
     all[id].pw = digest(password)
     all[id].verified = true
     saveUsers(all)

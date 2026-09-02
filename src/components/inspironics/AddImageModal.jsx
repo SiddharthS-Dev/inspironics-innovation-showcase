@@ -44,7 +44,9 @@ export default function AddImageModal({ open, cats, techs, onClose, onAdded }) {
   const pickFile = (file) => {
     if (!file) return
     if (!file.type.startsWith('image/')) return setError('Choose an image file.')
-    if (file.size > 4 * 1024 * 1024) return setError('Images must be under 4 MB to fit in local storage.')
+    // base64 inflates by about a third, and the whole gallery shares one ~5 MB
+    // localStorage quota, so the usable ceiling is far below what it looks like
+    if (file.size > 1.5 * 1024 * 1024) return setError('Images must be under 1.5 MB to fit in local storage.')
     const reader = new FileReader()
     reader.onload = () => {
       set('imageUrl', reader.result)

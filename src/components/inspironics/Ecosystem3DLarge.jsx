@@ -219,13 +219,15 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
       raf = requestAnimationFrame(tick)
       const t = clock.getElapsedTime()
       if (!visible) return
-      city.update(reduced ? 0 : t, camera)
+      city.update(reduced ? 0 : t, camera, !reduced)
       controls.update()
 
       // highlight ring follows the hovered / focused node
       const target = hovered || apiRef.current?.focused
       if (target && target.pos) {
-        highlight.position.set(target.pos[0], 0.35, target.pos[2])
+        // follow the node's own height: the stack layers are 26-50 units up the
+        // core tower, and at ground level the ring is swallowed by the podium
+        highlight.position.set(target.pos[0], Math.max(0.35, target.pos[1] || 0), target.pos[2])
         const s = target.kind === 'product' ? 0.36 : target.kind === 'layer' ? 0.6 : target.kind === 'landmark' ? 0.95 : 1
         highlight.scale.setScalar(s)
         highlight.material.color.set(target.color || '#00F0FF')

@@ -77,7 +77,7 @@ export default function Home() {
     )
   }
 
-  if (!data) return <Loader label="Indexing 235 innovations" />
+  if (!data) return <Loader label="Indexing the innovation corpus" />
 
   return (
     <>

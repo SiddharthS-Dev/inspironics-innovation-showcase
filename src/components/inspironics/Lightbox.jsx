@@ -2,6 +2,17 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { relatedTo } from '../../lib/showcaseData'
+import { lockScroll } from '../../lib/scrollLock'
+
+/** Download extension per image type — the corpus is webp, uploads are not. */
+const EXT_BY_TYPE = {
+  'image/webp': 'webp',
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/gif': 'gif',
+  'image/avif': 'avif',
+  'image/svg+xml': 'svg',
+}
 
 export default function Lightbox({ items, index, onIndex, onClose }) {
   const item = index != null ? items[index] : null
@@ -35,11 +46,10 @@ export default function Lightbox({ items, index, onIndex, onClose }) {
       else if (e.key === '0') reset()
     }
     window.addEventListener('keydown', onKey)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const releaseScroll = lockScroll()
     return () => {
       window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prev
+      releaseScroll()
     }
   }, [item, onClose, step, reset])
 
@@ -51,14 +61,18 @@ export default function Lightbox({ items, index, onIndex, onClose }) {
     try {
       const res = await fetch(item.fullUrl)
       const blob = await res.blob()
+      // The corpus is webp, but a locally added plate is whatever the visitor
+      // uploaded, so take the extension from the bytes rather than assuming.
+      const ext = EXT_BY_TYPE[blob.type] || item.fullUrl.match(/\.(\w{3,4})(?:[?#]|$)/)?.[1] || 'img'
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${item.title.replace(/[^\w\d-]+/g, '-').toLowerCase()}.webp`
+      a.download = `${item.title.replace(/[^\w\d-]+/g, '-').toLowerCase()}.${ext}`
       document.body.appendChild(a)
       a.click()
       a.remove()
-      URL.revokeObjectURL(url)
+      // revoking in the same tick can cancel the download before it starts
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
     } catch {
       window.open(item.fullUrl, '_blank', 'noopener')
     }

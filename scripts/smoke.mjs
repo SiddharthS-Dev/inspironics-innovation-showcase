@@ -6,9 +6,14 @@
  * Run with the dev server up:  node scripts/smoke.mjs [baseUrl]
  * Requires puppeteer-core and a local Chrome (npm i -D puppeteer-core).
  */
+import { readFileSync } from 'node:fs'
 import puppeteer from 'puppeteer-core'
 
 const BASE = process.argv[2] || 'http://localhost:5173'
+
+// read the corpus size rather than restating it, so growing the dataset does
+// not quietly turn this assertion into a lie
+const EXPECTED_PLATES = JSON.parse(readFileSync('public/data/showcase.json', 'utf8')).items.length
 const CHROME =
   process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 
@@ -55,8 +60,9 @@ try {
   /* ------------------------------------------------------------- hero ---- */
   await page.waitForSelector('#hero h1', { timeout: 20000 })
   const heroText = await page.$eval('#hero', (el) => el.innerText)
-  if (!/235/.test(heroText)) fail('hero does not show the 235-plate count')
-  else ok('hero renders with dataset stats')
+  if (!new RegExp(`\\b${EXPECTED_PLATES}\\b`).test(heroText)) {
+    fail(`hero does not show the ${EXPECTED_PLATES}-plate count`)
+  } else ok(`hero renders with dataset stats (${EXPECTED_PLATES} plates)`)
 
   /* ------------------------------------------------------------- 3D ------ */
   await page.waitForSelector('#ecosystem canvas', { timeout: 30000 })

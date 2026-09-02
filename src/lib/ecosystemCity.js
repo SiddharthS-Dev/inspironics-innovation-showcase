@@ -2539,11 +2539,23 @@ export function buildCity() {
   // scroll the water normals so the lake and pool are never dead still
   const waterN = tex('waterN', 3, 3)
 
-  const update = (t, camera) => {
-    for (let i = 0; i < updaters.length; i++) updaters[i](t)
+  let primed = false
 
-    waterN.offset.set(t * 0.006, t * 0.011)
-    beacons.forEach((b) => (b.mesh.visible = (t * 0.75 + b.phase) % 1 < 0.42))
+  /**
+   * @param animate false freezes the city for `prefers-reduced-motion`. One
+   * pass still has to run, because several builders leave their moving parts
+   * at the origin for the first update to place — drones, conduit pulses and
+   * the rooftop chiller fans among them. After that the per-frame instance
+   * uploads (five buffers for the traffic alone) are pure waste.
+   */
+  const update = (t, camera, animate = true) => {
+    if (animate || !primed) {
+      primed = true
+      for (let i = 0; i < updaters.length; i++) updaters[i](t)
+
+      waterN.offset.set(t * 0.006, t * 0.011)
+      beacons.forEach((b) => (b.mesh.visible = (t * 0.75 + b.phase) % 1 < 0.42))
+    }
 
     if (camera) {
       // captions fade back as you pull away, so the wide shot stays a city view
@@ -2568,6 +2580,9 @@ export function buildCity() {
         o.material?.dispose?.()
         return
       }
+      // InstancedMesh.dispose() is what frees the instance matrix and colour
+      // buffers; disposing the geometry alone leaks them on every remount
+      if (o.isInstancedMesh) o.dispose()
       if (o.isMesh || o.isLine || o.isPoints) o.geometry?.dispose?.()
     })
   }
