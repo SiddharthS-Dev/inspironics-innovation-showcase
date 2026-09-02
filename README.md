@@ -13,6 +13,20 @@ command decks and value frameworks from the Inspironics estate.
 
 ## Quick start
 
+On Windows, double-click **`start.bat`** — it installs dependencies on the first run, starts the
+dev server on <http://localhost:5173> and opens your browser. Leave that window open while you use
+the site. **`stop.bat`** shuts it down (so does Ctrl+C in the server window).
+
+```bat
+start.bat          :: dev server on port 5173
+start.bat 5174     :: dev server on another port
+start.bat prod     :: production build, then serve it on 4173
+stop.bat           :: stop the dev (5173) and preview (4173) servers
+stop.bat 5174      :: stop a specific port
+```
+
+Or drive npm directly:
+
 ```bash
 npm install
 npm run dev        # http://localhost:5173
