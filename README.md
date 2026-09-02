@@ -1,3 +1,116 @@
-"# inspironics-innovation-showcase" 
-"# inspironics-innovation-showcase" 
-"# inspironics-innovation-showcase" 
+# Inspironics Innovation Showcase
+
+An immersive, dark-themed digital gallery of **235 innovation infographics** — architecture plates,
+command decks and value frameworks from the Inspironics estate.
+
+- **Cinematic hero** over an animated grid backdrop
+- **3D smart-city Ecosystem Explorer** (Three.js) — click a zone, product or stack layer and the
+  gallery filters to the work behind it
+- **Flip-card gallery** with full-screen lightbox (zoom, pan, download, share, related plates)
+- **AI copilot** that answers from the whole corpus, including product names printed inside the artwork
+- **Monthly report** rendered to a multi-page PDF in the browser
+- Email/password + Google OAuth auth with an OTP verification and password-reset flow
+
+## Quick start
+
+```bash
+npm install
+npm run dev        # http://localhost:5173
+npm run build      # -> dist/
+npm run preview
+```
+
+Sign in, register, or use **Continue as guest** on the login screen.
+
+## Stack
+
+React 18 · Vite 5 · Tailwind CSS 3 · Framer Motion · Three.js · jsPDF · React Router 6
+
+## Where things live
+
+```
+src/
+  App.jsx                          router: / (Home), /report, auth routes
+  pages/                           Home · MonthlyReport · Login · Register · VerifyOtp
+                                   ForgotPassword · ResetPassword
+  context/AuthContext.jsx          session provider + ProtectedRoute gate
+  components/inspironics/          Navbar · HeroSection · Ecosystem3DLarge · EcosystemExplorer
+                                   Gallery · GalleryFilters · FlipCard · Lightbox · AddImageModal
+                                   DailySpotlight · AboutSection · ContactSection · Footer
+                                   CopilotPanel · Markdown · IntroSequence · Loader · Logo
+                                   AuthShell · GoogleButton
+  lib/
+    showcaseData.js                fetch + enrich + aggregate; thumb/full URL building
+    productEnrichment.js           generated image -> product map (see below)
+    ecosystemData.js               ZONES · PRODUCT_NODES · STACK_LAYERS · routes · countMatches
+    ecosystemCity.js               Three.js scene builders (sky, landmark, zones, conduits, drones)
+    copilotKnowledge.js            getShowcaseKnowledge, retrieval, answers, CopilotNote store
+    customItems.js                 locally-added plates (localStorage)
+    generateReportPdf.js           jsPDF monthly report
+    auth.js                        auth API (localStorage-backed)
+scripts/
+  buildEnrichment.mjs              regenerates src/lib/productEnrichment.js
+  smoke.mjs                        browser smoke test (needs puppeteer-core + local Chrome)
+inspironics/                       the 235 plates: thumbs/*.webp and full/*.webp
+public/data/showcase.json          the corpus
+```
+
+## Images
+
+The plates already live in `inspironics/{thumbs,full}` (~48 MB), so they are **not** duplicated into
+`public/`. A small Vite plugin in [`vite.config.js`](vite.config.js) serves that folder at `/images`
+in dev and copies it into `dist/images` on build. `showcaseData.js` builds every URL as
+`/images` + `item.t` (thumbnail) or `/images` + `item.full` (full view).
+
+To point at a different image source, change `BASE` in `src/lib/showcaseData.js` and the
+`IMAGE_SRC` path in `vite.config.js`.
+
+## Product enrichment
+
+Five products are named *inside* the artwork but appear in no text field: **Caleido Xenia**,
+**Caleido Domi**, **Caleido Kombos**, **Cielo Epic** and **Caleido Mints**.
+`src/lib/productEnrichment.js` maps each image id (`item.f`) to the products it carries;
+`showcaseData.js` merges those phrases into the item's `extraKeywords`, so the ecosystem product
+nodes and free-text search both resolve them (searching `kombos` returns 64 plates).
+
+The map is produced by `npm run enrich`:
+
+- The four "Operating System for Sustainable Infrastructure" plates (`IMG_0557`–`IMG_0560`) were
+  read directly off the artwork — each spells out all five product names — and are hard-coded as
+  `CONFIRMED_ALL_FIVE`. Xenia and Domi appear only on these.
+- The remaining assignments are **inferred** by scoring each plate's category, tech stack, objective
+  and architecture against each product's domain, then taking the top N so the totals match the
+  audited counts (Kombos 64, Cielo Epic 22, Mints 6).
+
+If you run a full OCR pass over the plates, drop the results into `CONFIRMED_ALL_FIVE`/`SCORES` in
+`scripts/buildEnrichment.mjs` and re-run `npm run enrich`. Nothing else needs to change.
+
+## Auth
+
+There is no server in this build, so accounts, OTP codes and reset tokens live in `localStorage`
+behind the async `api` object in `src/lib/auth.js` — the signatures and error shapes are what a REST
+auth service would expose, so swapping in a backend means replacing those function bodies. Because
+no mail is sent, the OTP and reset codes are shown on screen.
+
+For real Google sign-in, set a client ID:
+
+```bash
+cp .env.example .env.local
+# VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+```
+
+Without it, the Google button falls back to a clearly-labelled demo identity.
+
+Copilot session notes are stored through `CopilotNote` in `src/lib/copilotKnowledge.js`, which
+enforces the same predicate the server RLS policy would: a note is readable and writable by its
+owner, and by an admin.
+
+## Testing
+
+```bash
+npm run dev                       # in one terminal
+npm install -D puppeteer-core
+node scripts/smoke.mjs            # drives auth, 3D, gallery, lightbox, copilot, PDF, mobile
+```
+
+Set `CHROME_PATH` if Chrome is not at the default Windows location.
