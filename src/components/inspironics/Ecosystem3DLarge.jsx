@@ -5,7 +5,8 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
-import { buildCity, buildLights, makeSkyEnvironment } from '../../lib/ecosystemCity'
+import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js'
+import { LOOKS, applyLightRig, buildCity, buildLights, makeSkyEnvironment, setTimeOfDay } from '../../lib/ecosystemCity'
 import { nodeById } from '../../lib/ecosystemData'
 
 /**
@@ -19,10 +20,15 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
   const apiRef = useRef(null)
   const [ready, setReady] = useState(false)
   const [failed, setFailed] = useState(null)
+  const [night, setNight] = useState(false)
 
   // keep the latest callbacks without re-creating the scene
   const cbRef = useRef({ onHover, onSelect })
   cbRef.current = { onHover, onSelect }
+
+  // the scene is built once, so the initial look has to come through a ref
+  const nightRef = useRef(night)
+  nightRef.current = night
 
   useEffect(() => {
     const host = hostRef.current
@@ -40,7 +46,6 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.setSize(host.clientWidth, host.clientHeight)
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.05
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
@@ -49,16 +54,24 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
     host.appendChild(renderer.domElement)
 
     const scene = new THREE.Scene()
-    scene.fog = new THREE.FogExp2('#0d1026', 0.0028)
 
-    const { env, sky } = makeSkyEnvironment(renderer)
-    scene.environment = env
-    scene.add(sky)
+    // Both looks are compiled at mount: an environment map is one PMREM pass,
+    // and paying for it twice up front makes the day/night switch instant.
+    const skies = {
+      day: makeSkyEnvironment(renderer, 'day'),
+      night: makeSkyEnvironment(renderer, 'night'),
+    }
+    // aerial haze, tinted to the sky it fades into, so the hills read as distance
+    scene.fog = new THREE.FogExp2(new THREE.Color('#4f4a5a'), 0.001)
 
-    const camera = new THREE.PerspectiveCamera(46, host.clientWidth / host.clientHeight, 0.5, 1400)
-    camera.position.set(88, 86, 112)
+    const camera = new THREE.PerspectiveCamera(38, host.clientWidth / host.clientHeight, 0.5, 1600)
+    camera.position.set(126, 92, 158)
 
-    buildLights(scene)
+    // a big shadow map is what makes the low sun's long shadows readable; step
+    // it down on machines that are already pushing pixels
+    const lights = buildLights(scene, {
+      shadowSize: window.devicePixelRatio > 1.5 || window.innerWidth < 900 ? 2048 : 4096,
+    })
 
     const city = buildCity()
     scene.add(city.root)
@@ -66,12 +79,12 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.enableDamping = true
     controls.dampingFactor = 0.06
-    controls.minDistance = 40
-    controls.maxDistance = 340
-    controls.maxPolarAngle = Math.PI * 0.487
-    controls.target.set(0, 15, 0)
+    controls.minDistance = 34
+    controls.maxDistance = 360
+    controls.maxPolarAngle = Math.PI * 0.492
+    controls.target.set(0, 12, 0)
     controls.autoRotate = !reduced
-    controls.autoRotateSpeed = 0.28
+    controls.autoRotateSpeed = 0.16
     controls.mouseButtons = {
       LEFT: THREE.MOUSE.ROTATE,
       MIDDLE: THREE.MOUSE.DOLLY,
@@ -80,10 +93,44 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
 
     const composer = new EffectComposer(renderer)
     composer.addPass(new RenderPass(scene, camera))
-    const bloom = new UnrealBloomPass(new THREE.Vector2(host.clientWidth, host.clientHeight), 0.42, 0.85, 0.22)
+    // strength and threshold are set per look: barely there by day so only
+    // lamps and windows lift, wide open at night so the city glows
+    const bloom = new UnrealBloomPass(new THREE.Vector2(host.clientWidth, host.clientHeight), 0.2, 0.7, 0.82)
     composer.addPass(bloom)
     composer.addPass(new OutputPass())
+    // the composer's render target has no MSAA, so edges need SMAA
+    const smaa = new SMAAPass(host.clientWidth, host.clientHeight)
+    composer.addPass(smaa)
     composer.setSize(host.clientWidth, host.clientHeight)
+
+    /* --------------------------------------------------------- time of day -- */
+    let activeMode = null
+
+    /** Re-light the whole scene for `mode`. Nothing is rebuilt. */
+    const applyMode = (mode) => {
+      if (mode === activeMode) return
+      const look = LOOKS[mode] || LOOKS.day
+      const backdrop = skies[mode] || skies.day
+
+      if (activeMode) scene.remove((skies[activeMode] || skies.day).backdrop)
+      scene.add(backdrop.backdrop)
+      activeMode = mode
+
+      scene.environment = backdrop.env
+      scene.environmentIntensity = look.envIntensity
+      scene.fog.color.copy(backdrop.fogColor)
+      scene.fog.density = look.fog.density
+
+      renderer.toneMappingExposure = look.exposure
+      bloom.strength = look.bloom.strength
+      bloom.radius = look.bloom.radius
+      bloom.threshold = look.bloom.threshold
+
+      applyLightRig(lights, mode)
+      setTimeOfDay(mode)
+    }
+
+    applyMode(nightRef.current ? 'night' : 'day')
 
     /* ------------------------------------------------------------ picking -- */
     const ray = new THREE.Raycaster()
@@ -92,11 +139,18 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
     let downAt = null
 
     const highlight = new THREE.Mesh(
-      new THREE.RingGeometry(16.5, 18.6, 72),
-      new THREE.MeshBasicMaterial({ color: '#00F0FF', transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })
+      new THREE.RingGeometry(14.2, 15.9, 72),
+      new THREE.MeshBasicMaterial({
+        color: '#00F0FF',
+        transparent: true,
+        opacity: 0,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      })
     )
     highlight.rotation.x = -Math.PI / 2
-    highlight.position.y = 0.4
+    highlight.position.y = 0.35
     scene.add(highlight)
 
     const setPointerFromEvent = (e) => {
@@ -156,6 +210,7 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
     const clock = new THREE.Clock()
     let raf = 0
     let visible = true
+    let frames = 0
 
     const io = new IntersectionObserver(([entry]) => (visible = entry.isIntersecting), { threshold: 0.02 })
     io.observe(host)
@@ -164,14 +219,14 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
       raf = requestAnimationFrame(tick)
       const t = clock.getElapsedTime()
       if (!visible) return
-      if (!reduced) city.update(t)
+      city.update(reduced ? 0 : t, camera)
       controls.update()
 
       // highlight ring follows the hovered / focused node
       const target = hovered || apiRef.current?.focused
       if (target && target.pos) {
-        highlight.position.set(target.pos[0], 0.4, target.pos[2])
-        const s = target.kind === 'product' ? 0.45 : target.kind === 'landmark' || target.kind === 'layer' ? 0.85 : 1
+        highlight.position.set(target.pos[0], 0.35, target.pos[2])
+        const s = target.kind === 'product' ? 0.36 : target.kind === 'layer' ? 0.6 : target.kind === 'landmark' ? 0.95 : 1
         highlight.scale.setScalar(s)
         highlight.material.color.set(target.color || '#00F0FF')
         highlight.material.opacity = THREE.MathUtils.lerp(
@@ -184,6 +239,12 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
       }
 
       composer.render()
+
+      // Every shadow caster in the city is static — the cars, drones and rotors
+      // are all excluded — so the 4K shadow map is rendered a couple of times
+      // and then frozen. Re-rendering it each frame costs more than everything
+      // else in the scene put together.
+      if (++frames === 3) lights.sun.shadow.autoUpdate = false
     }
     tick()
 
@@ -197,6 +258,7 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
       renderer.setSize(w, h)
       composer.setSize(w, h)
       bloom.setSize(w, h)
+      smaa.setSize(w, h)
     })
     ro.observe(host)
 
@@ -204,11 +266,12 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
     const flyTo = (node) => {
       if (!node?.pos) return
       const [x, y, z] = node.pos
-      const dist = node.kind === 'zone' ? 58 : node.kind === 'product' ? 42 : 96
+      const dist = node.kind === 'zone' ? 54 : node.kind === 'product' ? 38 : 104
       const dir = new THREE.Vector3(x, 0, z)
       if (dir.lengthSq() < 1) dir.set(0.7, 0, 1)
       dir.normalize()
-      const to = new THREE.Vector3(x, 0, z).add(dir.multiplyScalar(dist)).setY(y + dist * 0.55)
+      // a shallow approach angle keeps the view architectural rather than top-down
+      const to = new THREE.Vector3(x, 0, z).add(dir.multiplyScalar(dist)).setY(y + dist * 0.42)
       const targetTo = new THREE.Vector3(x, y + (node.kind === 'layer' ? 0 : 8), z)
       const fromPos = camera.position.clone()
       const fromTarget = controls.target.clone()
@@ -230,8 +293,8 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
       const t0 = performance.now()
       const fromPos = camera.position.clone()
       const fromTarget = controls.target.clone()
-      const to = new THREE.Vector3(88, 86, 112)
-      const targetTo = new THREE.Vector3(0, 15, 0)
+      const to = new THREE.Vector3(126, 92, 158)
+      const targetTo = new THREE.Vector3(0, 12, 0)
       const step = () => {
         const k = Math.min(1, (performance.now() - t0) / 900)
         const e = 1 - Math.pow(1 - k, 3)
@@ -243,7 +306,7 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
       step()
     }
 
-    apiRef.current = { flyTo, resetView, controls, focused: null }
+    apiRef.current = { flyTo, resetView, applyMode, controls, focused: null }
     setReady(true)
 
     return () => {
@@ -257,18 +320,26 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
       controls.dispose()
       city.dispose()
       composer.dispose?.()
-      sky.geometry.dispose()
-      sky.material.map?.dispose()
-      sky.material.dispose()
+      Object.values(skies).forEach((s) => {
+        s.backdrop.traverse((o) => {
+          if (o.isMesh || o.isPoints) o.geometry?.dispose?.()
+          // textures behind the sprites live in the module texture cache
+          o.material?.dispose?.()
+        })
+        s.env.dispose?.()
+      })
       highlight.geometry.dispose()
       highlight.material.dispose()
-      env.dispose?.()
       renderer.dispose()
       renderer.forceContextLoss?.()
       if (el.parentNode === host) host.removeChild(el)
       apiRef.current = null
     }
   }, [])
+
+  useEffect(() => {
+    apiRef.current?.applyMode?.(night ? 'night' : 'day')
+  }, [night, ready])
 
   useEffect(() => {
     const node = focusId ? nodeById(focusId) : null
@@ -300,12 +371,21 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
           </div>
         </div>
       )}
-      <button
-        onClick={reset}
-        className="absolute right-4 top-4 z-10 rounded-lg border border-white/12 bg-[#0b0b10]/80 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted backdrop-blur transition hover:border-cyan-glow/50 hover:text-cyan-glow"
-      >
-        Reset view
-      </button>
+      <div className="absolute right-4 top-4 z-10 flex gap-2">
+        <button
+          onClick={() => setNight((v) => !v)}
+          aria-pressed={night}
+          className="rounded-lg border border-white/12 bg-[#0b0b10]/80 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted backdrop-blur transition hover:border-cyan-glow/50 hover:text-cyan-glow"
+        >
+          {night ? 'Day view' : 'Night view'}
+        </button>
+        <button
+          onClick={reset}
+          className="rounded-lg border border-white/12 bg-[#0b0b10]/80 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted backdrop-blur transition hover:border-cyan-glow/50 hover:text-cyan-glow"
+        >
+          Reset view
+        </button>
+      </div>
     </div>
   )
 }
