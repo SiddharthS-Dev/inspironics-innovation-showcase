@@ -114,13 +114,12 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
     const onPointerMove = (e) => {
       setPointerFromEvent(e)
       const node = pick()
-      if (node?.id !== hovered?.id) {
-        hovered = node
-        renderer.domElement.style.cursor = node ? 'pointer' : 'grab'
-        cbRef.current.onHover?.(node ? { ...nodeById(node.id), screen: { x: e.clientX, y: e.clientY } } : null)
-      } else if (node) {
-        cbRef.current.onHover?.({ ...nodeById(node.id), screen: { x: e.clientX, y: e.clientY } })
-      }
+      // Only report a *change*. Reporting every move would push a React state
+      // update per mousemove and re-render the panel ~60x a second.
+      if (node?.id === hovered?.id) return
+      hovered = node
+      renderer.domElement.style.cursor = node ? 'pointer' : 'grab'
+      cbRef.current.onHover?.(node ? { ...nodeById(node.id), screen: { x: e.clientX, y: e.clientY } } : null)
     }
 
     const onPointerLeave = () => {
@@ -258,6 +257,11 @@ export default function Ecosystem3DLarge({ onHover, onSelect, focusId }) {
       controls.dispose()
       city.dispose()
       composer.dispose?.()
+      sky.geometry.dispose()
+      sky.material.map?.dispose()
+      sky.material.dispose()
+      highlight.geometry.dispose()
+      highlight.material.dispose()
       env.dispose?.()
       renderer.dispose()
       renderer.forceContextLoss?.()

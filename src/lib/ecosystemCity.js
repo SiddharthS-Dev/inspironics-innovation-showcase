@@ -6,7 +6,7 @@
  * an `update(t, dt)` hook the render loop calls for drones, rotors and conduit flow.
  */
 import * as THREE from 'three'
-import { ZONES, PRODUCT_NODES, STACK_LAYERS, CONDUITS, CY, EM } from './ecosystemData'
+import { ZONES, PRODUCT_NODES, STACK_LAYERS, CONDUITS, CY, EM } from './ecosystemData.js'
 
 /* ------------------------------------------------------------------ sky ---- */
 
@@ -434,7 +434,9 @@ function buildZoneCluster(zone) {
         win.position.set(x, h * 0.55 + 0.7, z)
         g.add(win)
       })
-      g.add(greenPatch(4, '#2b6b45').translateX(0).translateZ(0))
+      const lawn = greenPatch(4, '#2b6b45')
+      lawn.position.y = 0.78 // clear of the 0.7-high zone pad, or it renders inside it
+      g.add(lawn)
       break
     }
     case 'towers': {
@@ -748,7 +750,13 @@ export function buildCity() {
 
   const dispose = () => {
     root.traverse((o) => {
-      if (o.isMesh || o.isLine || o.isSprite) {
+      // Sprites share one module-level geometry and their maps live in
+      // labelCache, so only the per-sprite material is ours to free.
+      if (o.isSprite) {
+        o.material?.dispose?.()
+        return
+      }
+      if (o.isMesh || o.isLine) {
         o.geometry?.dispose?.()
         const mats = Array.isArray(o.material) ? o.material : [o.material]
         mats.forEach((m) => {

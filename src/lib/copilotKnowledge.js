@@ -9,9 +9,9 @@
  * Answers are composed locally from that corpus rather than by a language model,
  * so the panel works with no API key and never invents a plate that isn't there.
  */
-import { loadShowcase } from './showcaseData'
-import { PRODUCTS, PRODUCT_ENRICHMENT } from './productEnrichment'
-import { NODES, PRODUCT_NODES, STACK_LAYERS, ZONES, countMatches } from './ecosystemData'
+import { loadShowcase } from './showcaseData.js'
+import { PRODUCTS, PRODUCT_ENRICHMENT } from './productEnrichment.js'
+import { NODES, PRODUCT_NODES, STACK_LAYERS, ZONES, countMatches } from './ecosystemData.js'
 
 export async function getShowcaseKnowledge() {
   const data = await loadShowcase()

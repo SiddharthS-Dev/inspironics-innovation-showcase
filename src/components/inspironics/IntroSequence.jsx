@@ -28,7 +28,9 @@ export default function IntroSequence({ onDone }) {
         /* ignore */
       }
       onDone?.()
-    }, 3700)
+      // 3200ms is when stage hits 3 and the 650ms exit starts; unmounting before
+      // ~3850 would cut the fade off mid-way.
+    }, 3900)
     return () => {
       timers.forEach(clearTimeout)
       clearTimeout(finish)

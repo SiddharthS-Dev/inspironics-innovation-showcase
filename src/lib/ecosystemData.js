@@ -4,8 +4,14 @@
  * clicked node to the gallery filters.
  *
  * Every node carries a `route` of { type: 'cat' | 'tech' | 'q', value }.
+ *
+ * Zone routes point at the category or tech domain that zone actually exercises,
+ * because the corpus is organised technically — it has no "agriculture" or "hotel"
+ * vocabulary for a q-route to hit. Product nodes keep q-routes, which resolve
+ * through the extraKeywords injected by productEnrichment.js. No route may return
+ * an empty gallery — `npm run check:routes` asserts that against the dataset.
  */
-import { PRODUCTS } from './productEnrichment'
+import { PRODUCTS } from './productEnrichment.js'
 
 export const CY = '#00F0FF'
 export const EM = '#00FFB2'
@@ -21,8 +27,8 @@ export const ZONES = [
     pos: [-46, 0, -34],
     kind3d: 'solar',
     blurb:
-      'Generation, storage and grid-balancing assets instrumented end to end — solar arrays, turbines and battery banks reporting into one energy twin.',
-    route: { type: 'q', value: 'energy' },
+      'Generation, storage and grid-balancing assets instrumented end to end — solar arrays, turbines and battery banks metered into one carbon and energy ledger.',
+    route: { type: 'tech', value: 'Carbon / ESG' },
   },
   {
     id: 'agri',
@@ -31,8 +37,8 @@ export const ZONES = [
     pos: [-58, 0, 22],
     kind3d: 'field',
     blurb:
-      'Precision agriculture: soil and canopy sensing, irrigation control and yield forecasting driven by edge inference in the field.',
-    route: { type: 'q', value: 'agri' },
+      'Precision agriculture: soil and canopy sensing, irrigation control and yield forecasting, all driven by inference running at the edge rather than in the cloud.',
+    route: { type: 'tech', value: 'Edge AI' },
   },
   {
     id: 'residential',
@@ -41,8 +47,8 @@ export const ZONES = [
     pos: [-20, 0, 50],
     kind3d: 'homes',
     blurb:
-      'Connected living spaces — comfort, safety and energy automation for homes and apartment portfolios, powered by Caleido Domi.',
-    route: { type: 'q', value: 'domi' },
+      'Connected living spaces — comfort, safety and energy automation delivered to homes and apartment portfolios as a subscription platform.',
+    route: { type: 'tech', value: 'SaaS Platform' },
   },
   {
     id: 'cities',
@@ -61,8 +67,8 @@ export const ZONES = [
     pos: [56, 0, 16],
     kind3d: 'resort',
     blurb:
-      'Guest-experience orchestration across rooms, venues and back-of-house — the Caleido Xenia domain.',
-    route: { type: 'q', value: 'xenia' },
+      'Guest-experience orchestration across rooms, venues and back-of-house, with partner and service marketplaces attached to every stay.',
+    route: { type: 'tech', value: 'Marketplace' },
   },
   {
     id: 'healthcare',

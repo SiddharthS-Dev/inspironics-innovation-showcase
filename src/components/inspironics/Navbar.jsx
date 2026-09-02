@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import Logo from './Logo'
@@ -15,6 +15,8 @@ const LINKS = [
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
+  const [account, setAccount] = useState(false)
+  const accountRef = useRef(null)
   const { user, isGuest, logout } = useAuth()
   const navigate = useNavigate()
 
@@ -31,6 +33,22 @@ export default function Navbar() {
       document.body.style.overflow = ''
     }
   }, [open])
+
+  // The account menu used to open on hover only, which left it unreachable by
+  // keyboard and on touch screens — where sign-out lives.
+  useEffect(() => {
+    if (!account) return
+    const onDown = (e) => {
+      if (!accountRef.current?.contains(e.target)) setAccount(false)
+    }
+    const onKey = (e) => e.key === 'Escape' && setAccount(false)
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [account])
 
   const go = (id) => {
     setOpen(false)
@@ -76,28 +94,37 @@ export default function Navbar() {
               Explore Gallery
             </button>
 
-            <div className="group relative hidden lg:block">
-              <button className="flex h-9 items-center gap-2 rounded-full border border-white/12 bg-white/5 pl-1 pr-3 transition hover:border-cyan-glow/40">
+            <div ref={accountRef} className="relative hidden lg:block">
+              <button
+                onClick={() => setAccount((v) => !v)}
+                aria-haspopup="menu"
+                aria-expanded={account}
+                className={`flex h-9 items-center gap-2 rounded-full border bg-white/5 pl-1 pr-3 transition ${
+                  account ? 'border-cyan-glow/50' : 'border-white/12 hover:border-cyan-glow/40'
+                }`}
+              >
                 <span className="grid h-7 w-7 place-items-center rounded-full bg-cyan-glow/15 font-mono text-[11px] font-bold text-cyan-glow">
                   {(user?.name || 'U').slice(0, 1).toUpperCase()}
                 </span>
                 <span className="max-w-[110px] truncate text-xs text-muted">{user?.name}</span>
               </button>
-              <div className="invisible absolute right-0 top-full w-56 translate-y-1 pt-2 opacity-0 transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
-                <div className="glass-strong rounded-xl p-3 shadow-lift">
-                  <p className="truncate text-xs text-chalk">{user?.email}</p>
-                  <p className="label-mono mt-1">{isGuest ? 'Guest session' : `Role · ${user?.role}`}</p>
-                  <button
-                    onClick={() => {
-                      logout()
-                      navigate('/login')
-                    }}
-                    className="mt-3 w-full rounded-lg border border-white/10 px-3 py-2 text-xs text-muted transition hover:border-rose-400/40 hover:text-rose-300"
-                  >
-                    Sign out
-                  </button>
+              {account && (
+                <div role="menu" className="absolute right-0 top-full w-56 pt-2">
+                  <div className="glass-strong rounded-xl p-3 shadow-lift">
+                    <p className="truncate text-xs text-chalk">{user?.email}</p>
+                    <p className="label-mono mt-1">{isGuest ? 'Guest session' : `Role · ${user?.role}`}</p>
+                    <button
+                      onClick={() => {
+                        logout()
+                        navigate('/login')
+                      }}
+                      className="mt-3 w-full rounded-lg border border-white/10 px-3 py-2 text-xs text-muted transition hover:border-rose-400/40 hover:text-rose-300"
+                    >
+                      Sign out
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <button

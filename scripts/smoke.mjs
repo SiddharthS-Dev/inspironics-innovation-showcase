@@ -109,6 +109,24 @@ try {
   })
   await sleep(500)
 
+  /* ---- every zone pill must land on a populated gallery ----------------- */
+  for (const zone of ['Smart Agri', 'Smart Energy', 'Residential', 'Hospitality']) {
+    await page.evaluate((z) => {
+      const b = [...document.querySelectorAll('button')].find((x) => x.textContent.includes(z))
+      b.click()
+    }, zone)
+    await sleep(900)
+    const bar = await page.$eval('#gallery .sticky', (el) => el.innerText)
+    const shown = Number((bar.match(/(\d+)\s+of\s+\d+/) || [])[1])
+    if (!shown) fail(`zone "${zone}" filters the gallery down to nothing`)
+    else ok(`zone "${zone}" -> ${shown} plates`)
+    await page.evaluate(() => {
+      const b = [...document.querySelectorAll('button')].find((x) => x.textContent.includes('Release filter'))
+      b?.click()
+    })
+    await sleep(400)
+  }
+
   /* --------------------------------------------------------- lightbox ---- */
   await page.evaluate(() => document.querySelector('#gallery .flip-scene button').click())
   await sleep(900)

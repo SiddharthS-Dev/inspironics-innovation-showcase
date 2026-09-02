@@ -55,6 +55,13 @@ export default function Gallery({ data, activeFilter, onClearActive, onAdded }) 
 
   useEffect(() => setLimit(PAGE), [cat, tech, flags, q, sort])
 
+  // Any hand-edit of the filters supersedes the ecosystem route, so the banner
+  // must not keep claiming the gallery is showing that node's slice.
+  const manual = (fn) => (value) => {
+    onClearActive?.()
+    fn(value)
+  }
+
   const dirty = !!(cat || tech.length || q || flags.esg || flags.ai || flags.iot)
 
   const clearAll = () => {
@@ -104,13 +111,13 @@ export default function Gallery({ data, activeFilter, onClearActive, onAdded }) 
         cats={cats}
         techs={techs}
         cat={cat}
-        setCat={setCat}
+        setCat={manual(setCat)}
         tech={tech}
-        setTech={setTech}
+        setTech={manual(setTech)}
         flags={flags}
-        setFlags={setFlags}
+        setFlags={manual(setFlags)}
         q={q}
-        setQ={setQ}
+        setQ={manual(setQ)}
         sort={sort}
         setSort={setSort}
         shown={filtered.length}

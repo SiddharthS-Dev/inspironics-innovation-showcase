@@ -18,7 +18,9 @@ export default function Home() {
   const [error, setError] = useState('')
   const [introDone, setIntroDone] = useState(false)
   const [activeFilter, setActiveFilter] = useState(null)
-  const [copilotItem, setCopilotItem] = useState(null)
+  // A plate opened outside the gallery's own filters: by the copilot, or by the
+  // #<id> deep link that the lightbox's Share button produces.
+  const [focusItem, setFocusItem] = useState(null)
 
   useEffect(() => {
     loadShowcase()
@@ -34,6 +36,27 @@ export default function Home() {
     }
     window.addEventListener('inspironics:custom-items', onChange)
     return () => window.removeEventListener('inspironics:custom-items', onChange)
+  }, [])
+
+  // Share links look like /#<item.f>; open that plate on load and on hashchange.
+  useEffect(() => {
+    if (!data) return
+    const openFromHash = () => {
+      const id = decodeURIComponent(window.location.hash.replace(/^#/, ''))
+      if (!id) return
+      const it = data.items.find((x) => x.f === id)
+      if (it) setFocusItem(it)
+    }
+    openFromHash()
+    window.addEventListener('hashchange', openFromHash)
+    return () => window.removeEventListener('hashchange', openFromHash)
+  }, [data])
+
+  const closeFocus = useCallback(() => {
+    setFocusItem(null)
+    if (window.location.hash) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+    }
   }, [])
 
   const route = useCallback((r, node) => {
@@ -78,14 +101,15 @@ export default function Home() {
 
       <Footer cats={data.cats} techs={data.techs} onRoute={route} />
 
-      <CopilotPanel onOpenItem={setCopilotItem} />
+      <CopilotPanel onOpenItem={setFocusItem} />
 
-      {/* the copilot opens plates in its own lightbox, independent of gallery filters */}
+      {/* Opened by the copilot or a share link, so it spans the full corpus
+          rather than whatever the gallery is currently filtered to. */}
       <Lightbox
         items={data.items}
-        index={copilotItem ? data.items.findIndex((x) => x.f === copilotItem.f) : null}
-        onIndex={(i) => setCopilotItem(data.items[i])}
-        onClose={() => setCopilotItem(null)}
+        index={focusItem ? data.items.findIndex((x) => x.f === focusItem.f) : null}
+        onIndex={(i) => setFocusItem(data.items[i])}
+        onClose={closeFocus}
       />
     </>
   )

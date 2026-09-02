@@ -6,8 +6,8 @@
  * vite.config.js, which maps that prefix onto ./inspironics in dev and copies the
  * folder into dist/images on build).
  */
-import { enrichmentFor, productKeysFor, PRODUCTS } from './productEnrichment'
-import { loadCustomItems } from './customItems'
+import { enrichmentFor, productKeysFor, PRODUCTS } from './productEnrichment.js'
+import { loadCustomItems } from './customItems.js'
 
 export const BASE = '/images'
 export const DATA_URL = '/data/showcase.json'

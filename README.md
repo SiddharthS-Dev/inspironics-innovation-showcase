@@ -121,10 +121,21 @@ owner, and by an admin.
 
 ## Testing
 
+`npm run check:routes` needs nothing but Node and runs as part of `npm run build`. It asserts that
+every clickable node in the Ecosystem Explorer filters the gallery down to at least one plate — a
+node that routes to an empty gallery is a dead end, which is exactly how Smart Agri and Smart Energy
+were broken before.
+
+The two browser suites need a local Chrome (set `CHROME_PATH` if it is not in the default Windows
+location) and the dev server running:
+
 ```bash
-npm run dev                       # in one terminal
 npm install -D puppeteer-core
-node scripts/smoke.mjs            # drives auth, 3D, gallery, lightbox, copilot, PDF, mobile
+npm run dev            # in one terminal
+
+npm run check:routes   # all 18 ecosystem routes resolve
+npm run smoke          # auth gate, 3D, gallery, zone pills, lightbox, copilot, PDF, mobile
+npm run test:flows     # register/OTP, sign-in, password reset, add-plate, share links, menus
 ```
 
-Set `CHROME_PATH` if Chrome is not at the default Windows location.
+Both suites fail on any console error, page exception or failed network request.
