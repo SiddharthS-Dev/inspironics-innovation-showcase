@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run lint:arch && npm run typecheck && npm run test && npm run check:routes && vite build && npm run check:bundle",
+    "build": "npm run lint:arch && npm run typecheck && npm run check:env && npm run test && npm run check:routes && vite build && npm run check:bundle",
     "preview": "vite preview",
     "enrich": "node scripts/buildEnrichment.mjs",
     "check:routes": "node scripts/checkRoutes.mjs",
@@ -17,6 +17,7 @@
     "check:bundle": "node scripts/checkBundle.mjs",
     "typecheck": "tsc -p tsconfig.json"
   },
+  
   "dependencies": {
     "framer-motion": "^11.11.17",
     "jspdf": "^2.5.2",
@@ -25,6 +26,7 @@
     "react-router-dom": "^6.28.0",
     "three": "^0.170.0"
   },
+
   "devDependencies": {
     "@testing-library/react": "^16.3.3",
     "@types/react": "^18.3.31",
@@ -36,9 +38,10 @@
     "postcss": "^8.4.49",
     "puppeteer-core": "^23.11.1",
     "tailwindcss": "^3.4.15",
-    "typescript": "~5.7",
+    "typescript": "^6.0.0",
     "vite": "^5.4.11"
   },
+
   "imports": {
     "#features/auth": "./src/features/auth/index.js",
     "#features/copilot": "./src/features/copilot/index.js",

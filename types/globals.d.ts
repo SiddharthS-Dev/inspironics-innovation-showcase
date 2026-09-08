@@ -38,3 +38,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env?: ImportMetaEnv
 }
+
+/** Vite CSS imports are valid side-effect imports in the app. */
+declare module '*.css'

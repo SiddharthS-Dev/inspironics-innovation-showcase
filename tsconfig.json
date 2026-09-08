@@ -17,7 +17,7 @@
     "isolatedModules": true,
     "strict": false,
     "noImplicitAny": false,
-    "ignoreDeprecations": "5.0",
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "#app/*": [

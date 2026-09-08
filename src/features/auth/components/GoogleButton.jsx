@@ -11,15 +11,9 @@ export const decodeJwt = (token) => {
   const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
   const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
 
-  let binary
-  if (typeof atob === 'function') {
-    binary = atob(padded)
-  } else if (typeof Buffer !== 'undefined') {
-    binary = Buffer.from(padded, 'base64').toString('binary')
-  } else {
-    throw new Error('Invalid JWT')
-  }
+  if (typeof atob !== 'function') throw new Error('Invalid JWT')
 
+  const binary = atob(padded)
   const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
   const json = new TextDecoder().decode(bytes)
 
