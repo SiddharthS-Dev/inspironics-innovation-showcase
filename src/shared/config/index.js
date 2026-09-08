@@ -10,13 +10,30 @@
  */
 const raw = import.meta.env ?? {}
 
+const asOptionalString = (value) => {
+  const str = typeof value === 'string' ? value.trim() : ''
+  return str || ''
+}
+
+const asOptionalUrl = (value) => {
+  const str = asOptionalString(value)
+  if (!str) return ''
+
+  try {
+    const url = new URL(str)
+    return url.toString()
+  } catch {
+    return ''
+  }
+}
+
 export const env = {
   /** Enables the real Google Identity button; falsy falls back to a demo sign-in. */
-  googleClientId: raw.VITE_GOOGLE_CLIENT_ID || '',
+  googleClientId: asOptionalString(raw.VITE_GOOGLE_CLIENT_ID),
   mode: raw.MODE || 'production',
   isDev: !!raw.DEV,
   /** POST target for `shared/lib/reporter`. Unset means log-only. */
-  errorEndpoint: raw.VITE_ERROR_ENDPOINT || '',
+  errorEndpoint: asOptionalUrl(raw.VITE_ERROR_ENDPOINT),
 }
 
 /**

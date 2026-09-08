@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "enrich": "node scripts/buildEnrichment.mjs",
     "check:routes": "node scripts/checkRoutes.mjs",
+    "check:env": "node scripts/checkEnv.mjs",
     "smoke": "node scripts/smoke.mjs",
     "test:flows": "node scripts/flows.mjs",
     "test": "node --import ./tests/register.mjs --test \"tests/**/*.test.mjs\"",
