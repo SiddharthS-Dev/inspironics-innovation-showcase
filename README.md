@@ -36,6 +36,23 @@ npm run preview
 
 Sign in, register, or use **Continue as guest** on the login screen.
 
+## Environment configuration
+
+Copy `.env.example` to `.env.local` and set the values you need for the environment you are deploying to:
+
+```bash
+cp .env.example .env.local
+```
+
+```env
+VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+VITE_ERROR_ENDPOINT=https://example.com/api/errors
+```
+
+- `VITE_GOOGLE_CLIENT_ID` enables the real Google Identity Services button.
+- `VITE_ERROR_ENDPOINT` sends runtime errors to a backend collector when present.
+- Leaving both blank keeps the demo auth flow and in-browser logging.
+
 ## Stack
 
 React 18 · Vite 5 · Tailwind CSS 3 · Framer Motion · Three.js · jsPDF · React Router 6
