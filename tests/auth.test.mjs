@@ -5,6 +5,7 @@ import { installBrowserStubs } from './helpers.mjs'
 const stubs = installBrowserStubs()
 const { api, passwordIssues, EMAIL_RE } = await import('../src/features/auth/api/authService.js')
 const { decodeJwt } = await import('../src/features/auth/components/GoogleButton.jsx')
+const { newSalt } = await import('../src/features/auth/model/credentials.js')
 
 const PW = 'correct-horse1'
 const fresh = () => stubs.reset()
@@ -25,6 +26,19 @@ test('jwt decode handles standard base64url payloads without deprecated helpers'
 
   assert.deepEqual(decodeJwt(token), payload)
   assert.throws(() => decodeJwt('not-a-jwt'), /Invalid JWT/)
+})
+
+test('newSalt falls back cleanly when WebCrypto is unavailable', () => {
+  const original = globalThis.crypto
+  Object.defineProperty(globalThis, 'crypto', { value: undefined, configurable: true, writable: true })
+
+  try {
+    const salt = newSalt(8)
+    assert.equal(salt.length, 16)
+    assert.match(salt, /^[0-9a-f]+$/)
+  } finally {
+    Object.defineProperty(globalThis, 'crypto', { value: original, configurable: true, writable: true })
+  }
 })
 
 test('email regex rejects the obvious shapes', () => {

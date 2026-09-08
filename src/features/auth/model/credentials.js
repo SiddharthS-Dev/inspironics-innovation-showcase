@@ -23,7 +23,16 @@ const subtle = typeof crypto !== 'undefined' ? crypto.subtle : undefined
 const encoder = new TextEncoder()
 const toHex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('')
 
-export const newSalt = (bytes = 16) => toHex(crypto.getRandomValues(new Uint8Array(bytes)))
+const fallbackRandomBytes = (bytes) => {
+  const values = new Uint8Array(bytes)
+  for (let i = 0; i < bytes; i++) values[i] = Math.floor(Math.random() * 256)
+  return values
+}
+
+export const newSalt = (bytes = 16) => {
+  const source = typeof crypto !== 'undefined' && crypto.getRandomValues ? crypto.getRandomValues(new Uint8Array(bytes)) : fallbackRandomBytes(bytes)
+  return toHex(source)
+}
 
 /**
  * Legacy, non-cryptographic digest. Kept only to verify accounts created
