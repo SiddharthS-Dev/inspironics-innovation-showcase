@@ -57,6 +57,10 @@ export function reportError(error, context = {}) {
   })
 }
 
+export function resetErrorReporting() {
+  seen.clear()
+}
+
 /**
  * Catch what escapes React: async throws and rejected promises.
  * Call once, from the composition root.
