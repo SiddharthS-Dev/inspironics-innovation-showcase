@@ -42,6 +42,7 @@ Copy `.env.example` to `.env.local` and set the values you need for the environm
 
 ```bash
 cp .env.example .env.local
+npm run check:env
 ```
 
 ```env
@@ -52,6 +53,7 @@ VITE_ERROR_ENDPOINT=https://example.com/api/errors
 - `VITE_GOOGLE_CLIENT_ID` enables the real Google Identity Services button.
 - `VITE_ERROR_ENDPOINT` sends runtime errors to a backend collector when present.
 - Leaving both blank keeps the demo auth flow and in-browser logging.
+- `npm run check:env` warns you early if the deployment config is incomplete.
 
 ## Stack
 
