@@ -2,9 +2,32 @@ import { useEffect, useRef, useState } from 'react'
 import { env } from '#shared/config'
 import { api } from '../api/authService.js'
 
-const decodeJwt = (token) => {
-  const payload = token.split('.')[1]
-  return JSON.parse(decodeURIComponent(escape(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))))
+export const decodeJwt = (token) => {
+  if (typeof token !== 'string') throw new Error('Invalid JWT')
+
+  const parts = token.split('.')
+  if (parts.length !== 3 || !parts[1]) throw new Error('Invalid JWT')
+
+  const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+  const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+
+  let binary
+  if (typeof atob === 'function') {
+    binary = atob(padded)
+  } else if (typeof Buffer !== 'undefined') {
+    binary = Buffer.from(padded, 'base64').toString('binary')
+  } else {
+    throw new Error('Invalid JWT')
+  }
+
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+  const json = new TextDecoder().decode(bytes)
+
+  try {
+    return JSON.parse(json)
+  } catch {
+    throw new Error('Invalid JWT')
+  }
 }
 
 /**

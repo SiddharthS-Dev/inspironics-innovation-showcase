@@ -4,6 +4,7 @@ import { installBrowserStubs } from './helpers.mjs'
 
 const stubs = installBrowserStubs()
 const { api, passwordIssues, EMAIL_RE } = await import('../src/features/auth/api/authService.js')
+const { decodeJwt } = await import('../src/features/auth/components/GoogleButton.jsx')
 
 const PW = 'correct-horse1'
 const fresh = () => stubs.reset()
@@ -13,6 +14,17 @@ test('password policy wants length, a letter and a digit', () => {
   assert.ok(passwordIssues('short1').includes('at least 8 characters'))
   assert.ok(passwordIssues('12345678').includes('a letter'))
   assert.ok(passwordIssues('abcdefgh').includes('a number'))
+})
+
+test('jwt decode handles standard base64url payloads without deprecated helpers', () => {
+  const payload = { email: 'ada@example.com', name: 'Ada Lovelace', picture: 'https://example.com/pic.png' }
+  const json = JSON.stringify(payload)
+  const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url')
+  const body = Buffer.from(json).toString('base64url')
+  const token = `${header}.${body}.signature`
+
+  assert.deepEqual(decodeJwt(token), payload)
+  assert.throws(() => decodeJwt('not-a-jwt'), /Invalid JWT/)
 })
 
 test('email regex rejects the obvious shapes', () => {
