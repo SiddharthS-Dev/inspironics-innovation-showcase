@@ -22,21 +22,23 @@ export const parseEnvFile = (content = '') => {
   return vars
 }
 
-const messages = []
-
-if (!fs.existsSync(envPath)) {
-  messages.push('Missing .env.local. Copy .env.example to .env.local before deploying.')
-} else {
-  const vars = parseEnvFile(fs.readFileSync(envPath, 'utf8'))
+export const getEnvWarnings = (vars = {}) => {
+  const warnings = []
 
   if (!vars.VITE_GOOGLE_CLIENT_ID) {
-    messages.push('VITE_GOOGLE_CLIENT_ID is not set. Google sign-in will remain in demo mode.')
+    warnings.push('VITE_GOOGLE_CLIENT_ID is not set. Google sign-in will remain in demo mode.')
   }
 
   if (vars.VITE_ERROR_ENDPOINT && !/^https?:\/\//i.test(vars.VITE_ERROR_ENDPOINT)) {
-    messages.push('VITE_ERROR_ENDPOINT should be an absolute http(s) URL when configured.')
+    warnings.push('VITE_ERROR_ENDPOINT should be an absolute http(s) URL when configured.')
   }
+
+  return warnings
 }
+
+const messages = fs.existsSync(envPath)
+  ? getEnvWarnings(parseEnvFile(fs.readFileSync(envPath, 'utf8')))
+  : ['Missing .env.local. Copy .env.example to .env.local before deploying.']
 
 if (messages.length) {
   console.warn('\nDeployment check warnings:')
