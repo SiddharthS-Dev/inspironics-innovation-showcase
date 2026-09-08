@@ -207,7 +207,7 @@ const NOTES_KEY = 'inspironics.copilot.notes.v1'
 const readNotes = () => {
   try {
     const v = JSON.parse(localStorage.getItem(NOTES_KEY) || '[]')
-    return Array.isArray(v) ? v : []
+    return Array.isArray(v) ? v.filter((note) => note && typeof note === 'object') : []
   } catch {
     return []
   }
