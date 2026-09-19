@@ -32,8 +32,12 @@ if (!existsSync(html)) {
 
 const markup = readFileSync(html, 'utf8')
 
-// the entry <script type="module"> plus every <link rel="modulepreload">
-const eager = [...new Set([...markup.matchAll(/(?:src|href)="(\/assets\/[^"]+\.js)"/g)].map((m) => m[1]))]
+// The entry <script type="module"> plus every <link rel="modulepreload">.
+// The path is matched loosely at the front because `base` in vite.config.js
+// prefixes these with the app's mount point (/showcase/assets/... behind the
+// Apex gateway); anchoring on /assets/ alone silently matched nothing and the
+// budget check reported "no entry script" instead of a size.
+const eager = [...new Set([...markup.matchAll(/(?:src|href)="([^"]*\/assets\/[^"]+\.js)"/g)].map((m) => m[1]))]
 
 if (eager.length === 0) {
   console.error('  could not find any entry script in dist/index.html')
@@ -42,8 +46,13 @@ if (eager.length === 0) {
 
 const kb = (n) => n / 1024
 let total = 0
+
+// The href carries the app's base ('/showcase/assets/x.js'); on disk the file is
+// at dist/assets/x.js, so drop everything ahead of the assets/ segment.
+const onDisk = (asset) => path.join(DIST, asset.slice(asset.indexOf('/assets/') + 1))
+
 const rows = eager.map((asset) => {
-  const size = kb(gzipSync(readFileSync(path.join(DIST, asset.replace(/^\//, '')))).length)
+  const size = kb(gzipSync(readFileSync(onDisk(asset))).length)
   total += size
   return { asset: path.basename(asset), size }
 })

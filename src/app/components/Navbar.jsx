@@ -2,7 +2,18 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import Logo from '#shared/ui/Logo'
+import { baseUrl } from '#shared/config'
 import { useAuth } from '#features/auth'
+
+/*
+ * Where the Apex dashboard lives, or null when this app is running on its own.
+ *
+ * Mounted under Apex the app's basename is '/showcase/', so the dashboard is a
+ * plain anchor to '/' — outside the router, which is the point. Standalone,
+ * '/' is this app's own home page and there is no dashboard to go back to, so
+ * the link is not rendered at all.
+ */
+const APEX_HOME = baseUrl === '/' ? null : '/'
 
 const LINKS = [
   { id: 'ecosystem', label: 'Ecosystem' },
@@ -63,6 +74,16 @@ export default function Navbar() {
         }`}
       >
         <nav className="mx-auto flex h-[68px] max-w-[1600px] items-center gap-4 px-5 sm:px-8 lg:px-12">
+          {APEX_HOME && (
+            <a
+              href={APEX_HOME}
+              title="Back to the Apex dashboard"
+              className="hidden shrink-0 items-center gap-1.5 rounded-lg border border-white/12 bg-white/5 px-2.5 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted transition hover:border-cyan-glow/40 hover:text-chalk sm:inline-flex"
+            >
+              <span aria-hidden="true">&#8592;</span> Apex
+            </a>
+          )}
+
           <button onClick={() => go('hero')} className="flex min-w-0 items-center gap-3 text-left">
             <Logo size={30} />
             <span className="min-w-0 truncate font-mono text-[11px] font-semibold uppercase tracking-[0.24em] text-chalk sm:text-xs">
@@ -176,6 +197,11 @@ export default function Navbar() {
                 <button onClick={() => go('gallery')} className="btn-primary w-full">
                   Explore Gallery
                 </button>
+                {APEX_HOME && (
+                  <a href={APEX_HOME} className="btn-ghost w-full">
+                    &#8592; Apex dashboard
+                  </a>
+                )}
                 <button
                   onClick={() => {
                     logout()

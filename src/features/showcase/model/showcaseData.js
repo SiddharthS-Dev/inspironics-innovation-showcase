@@ -6,11 +6,14 @@
  * vite.config.js, which maps that prefix onto ./inspironics in dev and copies the
  * folder into dist/images on build).
  */
+import { showcaseConfig } from '#shared/config'
 import { enrichmentFor, productKeysFor, PRODUCTS } from './productEnrichment.js'
 import { loadCustomItems } from './customItems.js'
 
-export const BASE = '/images'
-export const DATA_URL = '/data/showcase.json'
+// Both carry the app's mount path (see shared/config): under the Apex gateway
+// this app lives at /showcase/, so a bare '/images' would point outside it.
+export const BASE = showcaseConfig.imageBase
+export const DATA_URL = showcaseConfig.dataUrl
 
 export const CATEGORIES = [
   'Data & Analytics',

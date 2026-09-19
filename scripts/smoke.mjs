@@ -11,6 +11,12 @@ import puppeteer from 'puppeteer-core'
 
 const BASE = process.argv[2] || 'http://localhost:5173'
 
+// The base URL may carry a mount path ('/showcase' behind the Apex gateway, and
+// nothing at all standalone), so every in-app path is compared relative to it
+// rather than assuming this app owns the site root.
+const MOUNT = new URL(BASE).pathname.replace(/\/+$/, '')
+const at = (p) => `${MOUNT}${p}`
+
 // read the corpus size rather than restating it, so growing the dataset does
 // not quietly turn this assertion into a lie
 const EXPECTED_PLATES = JSON.parse(readFileSync('public/data/showcase.json', 'utf8')).items.length
@@ -20,6 +26,7 @@ const CHROME =
 const errors = []
 const steps = []
 const ok = (m) => steps.push(`  ok   ${m}`)
+const skip = (m) => steps.push(`  skip ${m}`)
 const fail = (m) => {
   steps.push(`  FAIL ${m}`)
   errors.push(m)
@@ -54,7 +61,7 @@ try {
     const b = [...document.querySelectorAll('button')].find((x) => x.textContent.includes('Continue as guest'))
     b.click()
   })
-  await page.waitForFunction(() => location.pathname === '/', { timeout: 15000 })
+  await page.waitForFunction((home) => location.pathname === home, { timeout: 15000 }, at('/'))
   ok('guest sign-in lands on the showcase')
 
   /* ------------------------------------------------------------- hero ---- */
@@ -166,17 +173,31 @@ try {
   if (!/monthly innovation report/i.test(report)) fail('report page did not render')
   else ok('report page renders')
 
-  const pdfPages = await page.evaluate(async () => {
+  // This step reaches for the app's *source* modules, which only a dev server
+  // exposes; a production build has hashed chunks and the SPA fallback answers
+  // /src/... with index.html. Check first so serving a build reads as skipped
+  // rather than as a broken PDF generator.
+  const hasSources = await page.evaluate(async (mount) => {
+    const res = await fetch(`${mount}/src/features/report/lib/reportPdf.js`)
+    return res.ok && (res.headers.get('content-type') || '').includes('javascript')
+  }, MOUNT)
+
+  if (!hasSources) skip('PDF generation (needs the dev server — this is a production build)')
+  else {
+  // The module URLs carry the mount too: under the Apex gateway these are
+  // served from /showcase/src/..., and a bare /src/... leaves the app entirely.
+  const pdfPages = await page.evaluate(async (mount) => {
     const [{ loadShowcase }, { generateReportPdf }] = await Promise.all([
-      import('/src/features/showcase/model/showcaseData.js'),
-      import('/src/features/report/lib/reportPdf.js'),
+      import(`${mount}/src/features/showcase/model/showcaseData.js`),
+      import(`${mount}/src/features/report/lib/reportPdf.js`),
     ])
     const data = await loadShowcase()
     const doc = generateReportPdf(data, { save: false })
     return doc.getNumberOfPages()
-  })
+  }, MOUNT)
   if (!(pdfPages >= 3)) fail(`PDF generated only ${pdfPages} page(s)`)
   else ok(`PDF generated (${pdfPages} pages)`)
+  }
 
   /* ------------------------------------------------------------ mobile -- */
   await page.setViewport({ width: 390, height: 844, isMobile: true })

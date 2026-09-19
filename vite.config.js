@@ -6,9 +6,14 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url))
 // The 235 infographics already live in ./inspironics/{thumbs,full}. Rather than
-// duplicating ~48 MB into public/, serve that folder at /images in dev and copy
-// it into dist/images at build time.
+// duplicating ~48 MB into public/, serve that folder under the app's base at
+// /images in dev and copy it into dist/images at build time.
 const IMAGE_SRC = path.join(ROOT, 'inspironics')
+
+// The Apex gateway mounts this app here (see ../apex/projects.mjs). Kept as a
+// constant because both `base` and the image middleware below must agree: the
+// browser now asks for /showcase/images/..., not /images/....
+const BASE = '/showcase/'
 
 const MIME = {
   '.webp': 'image/webp',
@@ -23,8 +28,9 @@ function inspironicsImages() {
     name: 'inspironics-images',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        if (!req.url || !req.url.startsWith('/images/')) return next()
-        const rel = decodeURIComponent(req.url.slice('/images/'.length).split('?')[0])
+        const prefix = `${BASE}images/`
+        if (!req.url || !req.url.startsWith(prefix)) return next()
+        const rel = decodeURIComponent(req.url.slice(prefix.length).split('?')[0])
         const file = path.join(IMAGE_SRC, rel)
         if (!file.startsWith(IMAGE_SRC) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
           return next()
@@ -45,6 +51,10 @@ function inspironicsImages() {
 }
 
 export default defineConfig({
+  // Mounted by the Apex gateway at /showcase (see ../apex/projects.mjs). Every
+  // asset URL and the router basename derive from this one value, so changing
+  // the mount means changing it here and in the Apex registry, nowhere else.
+  base: BASE,
   plugins: [react(), inspironicsImages()],
   // Mirrors the `imports` map in package.json. Both exist on purpose: the
   // package.json form is what Node (and therefore the unit tests) resolves,
@@ -56,7 +66,21 @@ export default defineConfig({
       '#shared': path.join(ROOT, 'src', 'shared'),
     },
   },
-  server: { port: 5173, open: true },
+  server: {
+    // Apex owns 5173 and proxies to this port; nobody opens it directly, so the
+    // browser must not be pointed here.
+    port: 5174,
+    strictPort: true,
+    open: false,
+    // Pinned to IPv4 loopback on purpose. Left to itself vite binds ::1 only,
+    // and the gateway's proxy — which dials 127.0.0.1 — gets ECONNREFUSED from
+    // a server that is plainly "ready" in its own logs. Also keeps this port
+    // off every other interface.
+    host: '127.0.0.1',
+    // The page is served from the gateway's origin, so the HMR socket has to
+    // dial the gateway too — it forwards the upgrade back to this server.
+    hmr: { clientPort: 5173 },
+  },
   build: {
     rollupOptions: {
       output: {

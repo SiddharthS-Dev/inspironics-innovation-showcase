@@ -28,6 +28,8 @@ interface Window {
 
 /** Vite injects these at build time. */
 interface ImportMetaEnv {
+  /** The `base` from vite.config.js, with a trailing slash. */
+  readonly BASE_URL?: string
   readonly MODE?: string
   readonly DEV?: boolean
   readonly PROD?: boolean

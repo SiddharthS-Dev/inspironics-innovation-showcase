@@ -12,6 +12,12 @@
 import puppeteer from 'puppeteer-core'
 
 const BASE = process.argv[2] || 'http://localhost:5173'
+
+// The base URL may carry a mount path ('/showcase' behind the Apex gateway, and
+// nothing at all standalone), so every in-app path is compared relative to it
+// rather than assuming this app owns the site root.
+const MOUNT = new URL(BASE).pathname.replace(/\/+$/, '')
+const at = (p) => `${MOUNT}${p}`
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -59,7 +65,7 @@ try {
   await fields[2].type('Passw0rdy')
   await fields[3].type('Passw0rdy')
   await clickText('Create account')
-  await p.waitForFunction(() => location.pathname === '/verify', { timeout: 10000 })
+  await p.waitForFunction((want) => location.pathname === want, { timeout: 10000 }, at('/verify'))
   await sleep(1200)
   const vtext = await bodyText()
   const code = (vtext.match(/your code is\s*(\d{6})/i) || [])[1]
@@ -68,7 +74,7 @@ try {
     const boxes = await p.$$('input')
     for (let i = 0; i < 6; i++) await boxes[i].type(code[i])
     await clickText('Verify and continue')
-    await p.waitForFunction(() => location.pathname === '/', { timeout: 15000 })
+    await p.waitForFunction((want) => location.pathname === want, { timeout: 15000 }, at('/'))
     note('register -> otp -> showcase ok')
   }
   await p.waitForSelector('#gallery .flip-scene', { timeout: 40000 })
@@ -83,7 +89,7 @@ try {
   await li[0].type(email)
   await li[1].type('Passw0rdy')
   await clickText('Sign in')
-  await p.waitForFunction(() => location.pathname === '/', { timeout: 15000 })
+  await p.waitForFunction((want) => location.pathname === want, { timeout: 15000 }, at('/'))
   note('sign in with registered credentials ok')
 
   /* ============================================== forgot / reset flow === */
@@ -97,7 +103,7 @@ try {
   if (!token) bug('forgot-password did not surface the dev reset code')
   else {
     await clickText('Enter reset code')
-    await p.waitForFunction(() => location.pathname === '/reset-password', { timeout: 10000 })
+    await p.waitForFunction((want) => location.pathname === want, { timeout: 10000 }, at('/reset-password'))
     await sleep(1200)
     const ri = await p.$$('input')
     await ri[1].type(token)
@@ -108,13 +114,13 @@ try {
     if (!/password updated/i.test(await bodyText())) bug('reset password did not confirm')
     else {
       await clickText('Sign in')
-      await p.waitForFunction(() => location.pathname === '/login', { timeout: 10000 })
+      await p.waitForFunction((want) => location.pathname === want, { timeout: 10000 }, at('/login'))
       await sleep(1200)
       const l2 = await p.$$('input')
       await l2[0].type(email)
       await l2[1].type('NewPassw0rd')
       await clickText('Sign in')
-      await p.waitForFunction(() => location.pathname === '/', { timeout: 15000 })
+      await p.waitForFunction((want) => location.pathname === want, { timeout: 15000 }, at('/'))
       note('forgot -> reset -> sign in with new password ok')
     }
   }
